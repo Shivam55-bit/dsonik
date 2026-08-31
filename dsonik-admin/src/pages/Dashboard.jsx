@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import adminApi from '../api'
+import Icon from '../components/Icons'
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview')
@@ -10,11 +11,18 @@ export default function Dashboard() {
   const [inquiries, setInquiries] = useState([])
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
-  const [msg, setMsg] = useState({ type: '', text: '' })
+  const [searchQuery, setSearchQuery] = useState('')
+  const [toast, setToast] = useState({ show: false, type: 'success', text: '' })
 
-  // New Category Form
-  const [newCat, setNewCat] = useState({ name: '', description: '', status: 'active', displayOrder: 0 })
+  // Modal States
+  const [showCatModal, setShowCatModal] = useState(false)
+  const [editingCat, setEditingCat] = useState(null)
+  const [catForm, setCatForm] = useState({ name: '', slug: '', description: '', status: 'active', displayOrder: 0 })
   const [catSubmitting, setCatSubmitting] = useState(false)
+
+  const [showProdModal, setShowProdModal] = useState(false)
+  const [prodForm, setProdForm] = useState({ name: '', category: '', price: '', modelNumber: '', description: '', status: 'active' })
+  const [prodSubmitting, setProdSubmitting] = useState(false)
 
   const navigate = useNavigate()
 
@@ -26,6 +34,11 @@ export default function Dashboard() {
 
     fetchAllData()
   }, [])
+
+  const showToast = (text, type = 'success') => {
+    setToast({ show: true, type, text })
+    setTimeout(() => setToast({ show: false, type: 'success', text: '' }), 4000)
+  }
 
   const fetchAllData = async () => {
     setLoading(true)
@@ -69,609 +82,871 @@ export default function Dashboard() {
     navigate('/login')
   }
 
-  const handleCreateCategory = async (e) => {
+  // Category Actions
+  const handleSaveCategory = async (e) => {
     e.preventDefault()
-    if (!newCat.name.trim()) return
+    if (!catForm.name.trim()) return
 
     setCatSubmitting(true)
-    setMsg({ type: '', text: '' })
-
     try {
-      await adminApi.post('/admin/categories', newCat)
-      setMsg({ type: 'success', text: 'Category created successfully!' })
-      setNewCat({ name: '', description: '', status: 'active', displayOrder: 0 })
+      if (editingCat) {
+        await adminApi.put(`/admin/categories/${editingCat._id}`, catForm)
+        showToast(`Category "${catForm.name}" updated successfully!`)
+      } else {
+        await adminApi.post('/admin/categories', catForm)
+        showToast(`Category "${catForm.name}" created successfully!`)
+      }
+      setShowCatModal(false)
+      setEditingCat(null)
+      setCatForm({ name: '', slug: '', description: '', status: 'active', displayOrder: 0 })
       fetchAllData()
     } catch (err) {
-      setMsg({ type: 'error', text: err.response?.data?.message || 'Failed to create category' })
+      showToast(err.response?.data?.message || 'Failed to save category', 'error')
     } finally {
       setCatSubmitting(false)
     }
   }
 
+  const openEditCat = (cat) => {
+    setEditingCat(cat)
+    setCatForm({
+      name: cat.name,
+      slug: cat.slug || '',
+      description: cat.description || '',
+      status: cat.status || 'active',
+      displayOrder: cat.displayOrder || 0
+    })
+    setShowCatModal(true)
+  }
+
   const handleDeleteCategory = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to delete "${name}"?`)) return
+    if (!window.confirm(`Are you sure you want to permanently delete category "${name}"?`)) return
 
     try {
       await adminApi.delete(`/admin/categories/${id}`)
-      setMsg({ type: 'success', text: `Category "${name}" deleted.` })
+      showToast(`Category "${name}" deleted.`)
       fetchAllData()
     } catch (err) {
-      setMsg({ type: 'error', text: err.response?.data?.message || 'Failed to delete category' })
+      showToast(err.response?.data?.message || 'Failed to delete category', 'error')
     }
   }
 
+  // Product Actions
+  const handleSaveProduct = async (e) => {
+    e.preventDefault()
+    if (!prodForm.name.trim()) return
+
+    setProdSubmitting(true)
+    try {
+      await adminApi.post('/admin/products', {
+        ...prodForm,
+        price: prodForm.price ? Number(prodForm.price) : 0
+      })
+      showToast(`Product "${prodForm.name}" added to catalog!`)
+      setShowProdModal(false)
+      setProdForm({ name: '', category: '', price: '', modelNumber: '', description: '', status: 'active' })
+      fetchAllData()
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to create product', 'error')
+    } finally {
+      setProdSubmitting(false)
+    }
+  }
+
+  const handleDeleteProduct = async (id, name) => {
+    if (!window.confirm(`Delete product "${name}"?`)) return
+
+    try {
+      await adminApi.delete(`/admin/products/${id}`)
+      showToast(`Product "${name}" removed.`)
+      fetchAllData()
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to delete product', 'error')
+    }
+  }
+
+  // Filters
+  const filteredCategories = categories.filter(c =>
+    c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.slug?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const filteredProducts = products.filter(p =>
+    p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.modelNumber?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const filteredInquiries = inquiries.filter(i =>
+    i.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    i.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    i.subject?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
   return (
-    <div style={styles.layout}>
+    <div className="admin-layout">
+      {/* Toast Notification */}
+      {toast.show && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '24px',
+          zIndex: 9999,
+          background: toast.type === 'success' ? '#10B981' : '#EF4444',
+          color: '#FFFFFF',
+          padding: '12px 20px',
+          borderRadius: '10px',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+          fontSize: '14px',
+          fontWeight: '600',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          animation: 'modal-in 0.2s ease-out'
+        }}>
+          <Icon name={toast.type === 'success' ? 'check' : 'close'} size={18} />
+          {toast.text}
+        </div>
+      )}
+
       {/* Sidebar */}
-      <aside style={styles.sidebar}>
-        <div style={styles.sideBrand}>
-          <div style={styles.brandBadge}>DSONIK</div>
-          <h2 style={styles.brandTitle}>Admin Panel</h2>
+      <aside className="admin-sidebar">
+        <div className="sidebar-header">
+          <div className="brand-badge">
+            <Icon name="database" size={12} />
+            DSONIK CORE
+          </div>
+          <h2 className="brand-name">Admin Portal</h2>
         </div>
 
-        <nav style={styles.nav}>
+        <nav className="sidebar-nav">
+          <div className="nav-section-title">Main Navigation</div>
+
           <button
             onClick={() => setActiveTab('overview')}
-            style={activeTab === 'overview' ? styles.navActive : styles.navBtn}
+            className={`nav-item ${activeTab === 'overview' ? 'active' : ''}`}
           >
-            📊 Overview
+            <div className="nav-item-left">
+              <Icon name="dashboard" size={18} />
+              <span>Overview</span>
+            </div>
           </button>
+
           <button
             onClick={() => setActiveTab('categories')}
-            style={activeTab === 'categories' ? styles.navActive : styles.navBtn}
+            className={`nav-item ${activeTab === 'categories' ? 'active' : ''}`}
           >
-            📁 Categories ({categories.length})
+            <div className="nav-item-left">
+              <Icon name="categories" size={18} />
+              <span>Categories</span>
+            </div>
+            <span className="nav-count-badge">{categories.length}</span>
           </button>
+
           <button
             onClick={() => setActiveTab('products')}
-            style={activeTab === 'products' ? styles.navActive : styles.navBtn}
+            className={`nav-item ${activeTab === 'products' ? 'active' : ''}`}
           >
-            📦 Products ({products.length})
+            <div className="nav-item-left">
+              <Icon name="products" size={18} />
+              <span>Products</span>
+            </div>
+            <span className="nav-count-badge">{products.length}</span>
           </button>
+
+          <div className="nav-section-title" style={{ marginTop: '12px' }}>Customer & Sales</div>
+
           <button
             onClick={() => setActiveTab('inquiries')}
-            style={activeTab === 'inquiries' ? styles.navActive : styles.navBtn}
+            className={`nav-item ${activeTab === 'inquiries' ? 'active' : ''}`}
           >
-            ✉️ Inquiries ({inquiries.length})
+            <div className="nav-item-left">
+              <Icon name="inquiries" size={18} />
+              <span>Inquiries & Leads</span>
+            </div>
+            {inquiries.length > 0 && <span className="nav-count-badge" style={{ background: '#FEF3C7', color: '#D97706' }}>{inquiries.length}</span>}
           </button>
+
           <button
             onClick={() => setActiveTab('orders')}
-            style={activeTab === 'orders' ? styles.navActive : styles.navBtn}
+            className={`nav-item ${activeTab === 'orders' ? 'active' : ''}`}
           >
-            🛒 Orders ({orders.length})
+            <div className="nav-item-left">
+              <Icon name="orders" size={18} />
+              <span>Orders</span>
+            </div>
+            <span className="nav-count-badge">{orders.length}</span>
           </button>
         </nav>
 
-        <div style={styles.sideFooter}>
-          <div style={styles.adminInfo}>
-            <div style={styles.adminAvatar}>👤</div>
-            <div>
-              <div style={styles.adminName}>{adminUser?.name || 'Administrator'}</div>
-              <div style={styles.adminEmail}>{adminUser?.email || 'admin@dsonik.com'}</div>
+        <div className="sidebar-footer">
+          <div className="admin-profile-pill">
+            <div className="admin-avatar">
+              {adminUser?.name ? adminUser.name.charAt(0).toUpperCase() : 'A'}
+            </div>
+            <div className="admin-meta">
+              <div className="admin-name">{adminUser?.name || 'DSONIK Admin'}</div>
+              <div className="admin-role">Super Administrator</div>
             </div>
           </div>
-          <button onClick={handleLogout} style={styles.logoutBtn}>
-            🚪 Sign Out
+
+          <button onClick={handleLogout} className="signout-btn">
+            <Icon name="logout" size={16} />
+            Sign Out
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main style={styles.main}>
-        <header style={styles.header}>
-          <div>
-            <h1 style={styles.pageTitle}>
-              {activeTab === 'overview' && 'Dashboard Overview'}
-              {activeTab === 'categories' && 'Manage Categories'}
-              {activeTab === 'products' && 'Product Inventory'}
-              {activeTab === 'inquiries' && 'Customer Inquiries'}
-              {activeTab === 'orders' && 'Order Management'}
-            </h1>
-            <p style={styles.pageSub}>DSONIK Industrial Automation & Ultrasonic Machinery</p>
+      <div className="admin-main">
+        {/* Topbar */}
+        <header className="admin-topbar">
+          <div className="topbar-left">
+            <div className="topbar-search">
+              <Icon name="search" size={16} />
+              <input
+                type="text"
+                placeholder="Search catalog, leads, orders..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
           </div>
-          <button onClick={fetchAllData} style={styles.refreshBtn}>
-            🔄 Refresh
-          </button>
+
+          <div className="topbar-right">
+            <div className="live-status-pill">
+              <span className="status-dot"></span>
+              MongoDB Atlas Active
+            </div>
+
+            <a
+              href="http://localhost:5176"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="action-btn-outline"
+            >
+              <Icon name="externalLink" size={14} />
+              Storefront
+            </a>
+
+            <button onClick={fetchAllData} className="action-btn-outline" title="Refresh records">
+              <Icon name="refresh" size={14} />
+              Sync
+            </button>
+          </div>
         </header>
 
-        {msg.text && (
-          <div style={msg.type === 'success' ? styles.alertSuccess : styles.alertError}>
-            {msg.text}
-          </div>
-        )}
+        {/* Page Container */}
+        <main className="page-container">
+          <div className="page-header">
+            <div>
+              <h1 className="page-title">
+                {activeTab === 'overview' && 'Dashboard Overview'}
+                {activeTab === 'categories' && 'Categories Management'}
+                {activeTab === 'products' && 'Product Inventory'}
+                {activeTab === 'inquiries' && 'Customer Leads & Quotes'}
+                {activeTab === 'orders' && 'Order Fulfillment'}
+              </h1>
+              <p className="page-sub">DSONIK Industrial Machinery & Ultrasonic Automation</p>
+            </div>
 
-        {loading ? (
-          <div style={styles.loadingBox}>
-            <p>Loading database records...</p>
+            <div>
+              {activeTab === 'categories' && (
+                <button
+                  onClick={() => {
+                    setEditingCat(null)
+                    setCatForm({ name: '', slug: '', description: '', status: 'active', displayOrder: 0 })
+                    setShowCatModal(true)
+                  }}
+                  className="action-btn-primary"
+                >
+                  <Icon name="plus" size={16} />
+                  Add Category
+                </button>
+              )}
+              {activeTab === 'products' && (
+                <button
+                  onClick={() => setShowProdModal(true)}
+                  className="action-btn-primary"
+                >
+                  <Icon name="plus" size={16} />
+                  Add Product
+                </button>
+              )}
+            </div>
           </div>
-        ) : (
-          <div>
-            {/* OVERVIEW TAB */}
-            {activeTab === 'overview' && (
-              <div>
-                <div style={styles.statsGrid}>
-                  <div style={{ ...styles.statCard, borderLeft: '4px solid #3B82F6' }}>
-                    <div style={styles.statLabel}>Total Categories</div>
-                    <div style={styles.statValue}>{categories.length}</div>
+
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '80px 0', color: '#64748B' }}>
+              <Icon name="refresh" size={32} color="#0284C7" className="animate-spin" />
+              <p style={{ marginTop: '14px', fontWeight: 600 }}>Syncing live database records...</p>
+            </div>
+          ) : (
+            <div>
+              {/* OVERVIEW TAB */}
+              {activeTab === 'overview' && (
+                <div>
+                  <div className="stats-grid">
+                    <div className="stat-card">
+                      <div className="stat-info">
+                        <span className="stat-label">Total Categories</span>
+                        <span className="stat-value">{categories.length}</span>
+                        <span className="stat-trend">
+                          <Icon name="trendingUp" size={14} />
+                          Active Catalog
+                        </span>
+                      </div>
+                      <div className="stat-icon-wrapper stat-icon-blue">
+                        <Icon name="categories" size={22} />
+                      </div>
+                    </div>
+
+                    <div className="stat-card">
+                      <div className="stat-info">
+                        <span className="stat-label">Total Products</span>
+                        <span className="stat-value">{products.length}</span>
+                        <span className="stat-trend">
+                          <Icon name="trendingUp" size={14} />
+                          Live on Store
+                        </span>
+                      </div>
+                      <div className="stat-icon-wrapper stat-icon-emerald">
+                        <Icon name="products" size={22} />
+                      </div>
+                    </div>
+
+                    <div className="stat-card">
+                      <div className="stat-info">
+                        <span className="stat-label">Inquiries Received</span>
+                        <span className="stat-value">{inquiries.length}</span>
+                        <span className="stat-trend" style={{ color: '#D97706' }}>
+                          <Icon name="inquiries" size={14} />
+                          Lead Pipeline
+                        </span>
+                      </div>
+                      <div className="stat-icon-wrapper stat-icon-amber">
+                        <Icon name="inquiries" size={22} />
+                      </div>
+                    </div>
+
+                    <div className="stat-card">
+                      <div className="stat-info">
+                        <span className="stat-label">Total Orders</span>
+                        <span className="stat-value">{orders.length}</span>
+                        <span className="stat-trend" style={{ color: '#7C3AED' }}>
+                          <Icon name="orders" size={14} />
+                          Processed
+                        </span>
+                      </div>
+                      <div className="stat-icon-wrapper stat-icon-purple">
+                        <Icon name="orders" size={22} />
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ ...styles.statCard, borderLeft: '4px solid #10B981' }}>
-                    <div style={styles.statLabel}>Active Products</div>
-                    <div style={styles.statValue}>{products.length}</div>
+
+                  {/* System Status & Live Endpoints */}
+                  <div className="content-card">
+                    <div className="card-header">
+                      <h3 className="card-title">Production Server & API Status</h3>
+                      <span className="badge badge-active">Live Operational</span>
+                    </div>
+                    <div className="card-body">
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                        <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                          <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>DATABASE STATUS</div>
+                          <div style={{ fontSize: '16px', fontWeight: 700, color: '#10B981', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span className="status-dot"></span>
+                            MongoDB Atlas Connected
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#475569', marginTop: '4px' }}>Database: <code>dsonik-ecommerce</code></div>
+                        </div>
+
+                        <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                          <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>ACTIVE API BASE URL</div>
+                          <div style={{ fontSize: '14px', fontWeight: 600, color: '#0284C7' }}>
+                            <code>{adminApi.defaults.baseURL}</code>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#475569', marginTop: '4px' }}>Node + Express REST API</div>
+                        </div>
+
+                        <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                          <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>AUTHENTICATED SESSION</div>
+                          <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>{adminUser?.email || 'admin@dsonik.com'}</div>
+                          <div style={{ fontSize: '12px', color: '#10B981', marginTop: '4px', fontWeight: 600 }}>Role: Administrator</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ ...styles.statCard, borderLeft: '4px solid #F59E0B' }}>
-                    <div style={styles.statLabel}>Inquiries Received</div>
-                    <div style={styles.statValue}>{inquiries.length}</div>
-                  </div>
-                  <div style={{ ...styles.statCard, borderLeft: '4px solid #8B5CF6' }}>
-                    <div style={styles.statLabel}>Total Orders</div>
-                    <div style={styles.statValue}>{orders.length}</div>
+
+                  {/* Recent Inquiries Snippet */}
+                  <div className="content-card">
+                    <div className="card-header">
+                      <h3 className="card-title">Recent Customer Inquiries</h3>
+                      <button onClick={() => setActiveTab('inquiries')} className="action-btn-outline" style={{ padding: '4px 10px', fontSize: '12px' }}>
+                        View All Inquiries →
+                      </button>
+                    </div>
+                    <div className="table-responsive">
+                      {inquiries.length === 0 ? (
+                        <div style={{ padding: '32px', textAlign: 'center', color: '#94A3B8' }}>
+                          No customer inquiries received yet.
+                        </div>
+                      ) : (
+                        <table className="modern-table">
+                          <thead>
+                            <tr>
+                              <th>Customer</th>
+                              <th>Contact</th>
+                              <th>Subject / Inquiry</th>
+                              <th>Date</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {inquiries.slice(0, 5).map((inq) => (
+                              <tr key={inq._id}>
+                                <td><strong>{inq.name}</strong></td>
+                                <td>
+                                  <div>{inq.email}</div>
+                                  <small style={{ color: '#64748B' }}>{inq.phone}</small>
+                                </td>
+                                <td>{inq.subject || inq.message}</td>
+                                <td>{new Date(inq.createdAt).toLocaleDateString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
                   </div>
                 </div>
+              )}
 
-                <div style={styles.card}>
-                  <h3 style={styles.cardTitle}>Quick System Status</h3>
-                  <div style={styles.statusRow}>
-                    <span>Backend Status:</span>
-                    <strong style={{ color: '#10B981' }}>● Online & Healthy</strong>
-                  </div>
-                  <div style={styles.statusRow}>
-                    <span>Database:</span>
-                    <strong style={{ color: '#10B981' }}>● MongoDB Atlas (dsonik-ecommerce)</strong>
-                  </div>
-                  <div style={styles.statusRow}>
-                    <span>API Endpoint:</span>
-                    <code>{adminApi.defaults.baseURL}</code>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* CATEGORIES TAB */}
-            {activeTab === 'categories' && (
-              <div>
-                {/* Create Category Form */}
-                <div style={styles.card}>
-                  <h3 style={styles.cardTitle}>Add New Category</h3>
-                  <form onSubmit={handleCreateCategory} style={styles.formRow}>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Category Name (e.g. Ultrasonic Cutters)"
-                      value={newCat.name}
-                      onChange={(e) => setNewCat({ ...newCat, name: e.target.value })}
-                      style={styles.input}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Description"
-                      value={newCat.description}
-                      onChange={(e) => setNewCat({ ...newCat, description: e.target.value })}
-                      style={styles.input}
-                    />
-                    <button type="submit" disabled={catSubmitting} style={styles.actionBtn}>
-                      {catSubmitting ? 'Creating...' : '+ Create Category'}
+              {/* CATEGORIES TAB */}
+              {activeTab === 'categories' && (
+                <div className="content-card">
+                  <div className="card-header">
+                    <h3 className="card-title">All Categories ({filteredCategories.length})</h3>
+                    <button
+                      onClick={() => {
+                        setEditingCat(null)
+                        setCatForm({ name: '', slug: '', description: '', status: 'active', displayOrder: 0 })
+                        setShowCatModal(true)
+                      }}
+                      className="action-btn-primary"
+                    >
+                      <Icon name="plus" size={16} />
+                      Add Category
                     </button>
-                  </form>
-                </div>
-
-                {/* Categories Table */}
-                <div style={styles.card}>
-                  <h3 style={styles.cardTitle}>Existing Categories ({categories.length})</h3>
-                  {categories.length === 0 ? (
-                    <p style={{ color: '#64748B' }}>No categories created yet.</p>
-                  ) : (
-                    <table style={styles.table}>
-                      <thead>
-                        <tr>
-                          <th style={styles.th}>Name</th>
-                          <th style={styles.th}>Slug</th>
-                          <th style={styles.th}>Status</th>
-                          <th style={styles.th}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {categories.map((c) => (
-                          <tr key={c._id}>
-                            <td style={styles.td}><strong>{c.name}</strong></td>
-                            <td style={styles.td}><code>{c.slug}</code></td>
-                            <td style={styles.td}>
-                              <span style={c.status === 'active' ? styles.badgeActive : styles.badgeInactive}>
-                                {c.status}
-                              </span>
-                            </td>
-                            <td style={styles.td}>
-                              <button
-                                onClick={() => handleDeleteCategory(c._id, c.name)}
-                                style={styles.deleteBtn}
-                              >
-                                Delete
-                              </button>
-                            </td>
+                  </div>
+                  <div className="table-responsive">
+                    {filteredCategories.length === 0 ? (
+                      <div style={{ padding: '48px', textAlign: 'center', color: '#64748B' }}>
+                        <Icon name="categories" size={40} color="#CBD5E1" />
+                        <p style={{ marginTop: '12px', fontSize: '15px', fontWeight: 600 }}>No categories found</p>
+                        <p style={{ fontSize: '13px', color: '#94A3B8', marginTop: '4px' }}>Click "Add Category" to create your first product category.</p>
+                      </div>
+                    ) : (
+                      <table className="modern-table">
+                        <thead>
+                          <tr>
+                            <th>Category Name</th>
+                            <th>Slug</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                            <th>Actions</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
+                        </thead>
+                        <tbody>
+                          {filteredCategories.map((c) => (
+                            <tr key={c._id}>
+                              <td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Icon name="categories" size={18} color="#0284C7" />
+                                  </div>
+                                  <strong>{c.name}</strong>
+                                </div>
+                              </td>
+                              <td><span className="code-badge">{c.slug}</span></td>
+                              <td style={{ maxWidth: '300px', color: '#64748B' }}>{c.description || '—'}</td>
+                              <td>
+                                <span className={`badge ${c.status === 'active' ? 'badge-active' : 'badge-inactive'}`}>
+                                  {c.status}
+                                </span>
+                              </td>
+                              <td>
+                                <div className="table-actions">
+                                  <button onClick={() => openEditCat(c)} className="icon-btn" title="Edit">
+                                    <Icon name="edit" size={15} />
+                                  </button>
+                                  <button onClick={() => handleDeleteCategory(c._id, c.name)} className="icon-btn icon-btn-danger" title="Delete">
+                                    <Icon name="trash" size={15} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* PRODUCTS TAB */}
+              {activeTab === 'products' && (
+                <div className="content-card">
+                  <div className="card-header">
+                    <h3 className="card-title">Product Inventory ({filteredProducts.length})</h3>
+                    <button onClick={() => setShowProdModal(true)} className="action-btn-primary">
+                      <Icon name="plus" size={16} />
+                      Add Product
+                    </button>
+                  </div>
+                  <div className="table-responsive">
+                    {filteredProducts.length === 0 ? (
+                      <div style={{ padding: '48px', textAlign: 'center', color: '#64748B' }}>
+                        <Icon name="products" size={40} color="#CBD5E1" />
+                        <p style={{ marginTop: '12px', fontSize: '15px', fontWeight: 600 }}>No products in catalog</p>
+                        <p style={{ fontSize: '13px', color: '#94A3B8', marginTop: '4px' }}>Click "Add Product" to add your industrial machinery and products.</p>
+                      </div>
+                    ) : (
+                      <table className="modern-table">
+                        <thead>
+                          <tr>
+                            <th>Product</th>
+                            <th>Category</th>
+                            <th>Model Number</th>
+                            <th>Price</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredProducts.map((p) => (
+                            <tr key={p._id}>
+                              <td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Icon name="products" size={18} color="#10B981" />
+                                  </div>
+                                  <div>
+                                    <strong>{p.name}</strong>
+                                    <div style={{ fontSize: '12px', color: '#94A3B8' }}>{p.slug}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td>{p.category?.name || 'General'}</td>
+                              <td><span className="code-badge">{p.modelNumber || 'N/A'}</span></td>
+                              <td><strong>{p.price ? `₹${p.price.toLocaleString()}` : 'Quote on Request'}</strong></td>
+                              <td>
+                                <span className={`badge ${p.status === 'active' ? 'badge-active' : 'badge-inactive'}`}>
+                                  {p.status || 'active'}
+                                </span>
+                              </td>
+                              <td>
+                                <div className="table-actions">
+                                  <button onClick={() => handleDeleteProduct(p._id, p.name)} className="icon-btn icon-btn-danger" title="Delete">
+                                    <Icon name="trash" size={15} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* INQUIRIES TAB */}
+              {activeTab === 'inquiries' && (
+                <div className="content-card">
+                  <div className="card-header">
+                    <h3 className="card-title">Customer Leads & Quotes ({filteredInquiries.length})</h3>
+                  </div>
+                  <div className="table-responsive">
+                    {filteredInquiries.length === 0 ? (
+                      <div style={{ padding: '48px', textAlign: 'center', color: '#64748B' }}>
+                        <Icon name="inquiries" size={40} color="#CBD5E1" />
+                        <p style={{ marginTop: '12px', fontSize: '15px', fontWeight: 600 }}>No leads received yet</p>
+                        <p style={{ fontSize: '13px', color: '#94A3B8', marginTop: '4px' }}>Inquiries submitted by website visitors will appear here in real-time.</p>
+                      </div>
+                    ) : (
+                      <table className="modern-table">
+                        <thead>
+                          <tr>
+                            <th>Customer Name</th>
+                            <th>Contact Information</th>
+                            <th>Subject & Message</th>
+                            <th>Received At</th>
+                            <th>Quick Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredInquiries.map((inq) => (
+                            <tr key={inq._id}>
+                              <td>
+                                <strong>{inq.name}</strong>
+                                {inq.company && <div style={{ fontSize: '12px', color: '#64748B' }}>🏢 {inq.company}</div>}
+                              </td>
+                              <td>
+                                <div><a href={`mailto:${inq.email}`} style={{ color: '#0284C7', textDecoration: 'none' }}>{inq.email}</a></div>
+                                <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>📞 {inq.phone}</div>
+                              </td>
+                              <td style={{ maxWidth: '320px' }}>
+                                <div style={{ fontWeight: 600, color: '#0F172A', marginBottom: '2px' }}>{inq.subject || 'General Inquiry'}</div>
+                                <div style={{ fontSize: '12.5px', color: '#475569' }}>{inq.message}</div>
+                              </td>
+                              <td>{new Date(inq.createdAt).toLocaleString()}</td>
+                              <td>
+                                <div className="table-actions">
+                                  {inq.phone && (
+                                    <a
+                                      href={`https://wa.me/${inq.phone.replace(/[^0-9]/g, '')}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="action-btn-outline"
+                                      style={{ padding: '4px 10px', fontSize: '12px', color: '#059669', borderColor: '#A7F3D0' }}
+                                    >
+                                      💬 WhatsApp
+                                    </a>
+                                  )}
+                                  <a
+                                    href={`mailto:${inq.email}`}
+                                    className="action-btn-outline"
+                                    style={{ padding: '4px 10px', fontSize: '12px' }}
+                                  >
+                                    ✉️ Email
+                                  </a>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ORDERS TAB */}
+              {activeTab === 'orders' && (
+                <div className="content-card">
+                  <div className="card-header">
+                    <h3 className="card-title">All Customer Orders ({orders.length})</h3>
+                  </div>
+                  <div className="table-responsive">
+                    {orders.length === 0 ? (
+                      <div style={{ padding: '48px', textAlign: 'center', color: '#64748B' }}>
+                        <Icon name="orders" size={40} color="#CBD5E1" />
+                        <p style={{ marginTop: '12px', fontSize: '15px', fontWeight: 600 }}>No orders placed yet</p>
+                        <p style={{ fontSize: '13px', color: '#94A3B8', marginTop: '4px' }}>Customer checkout orders will be tracked here.</p>
+                      </div>
+                    ) : (
+                      <table className="modern-table">
+                        <thead>
+                          <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Items</th>
+                            <th>Total Amount</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {orders.map((ord) => (
+                            <tr key={ord._id}>
+                              <td><span className="code-badge">#{ord._id.slice(-8)}</span></td>
+                              <td>{ord.customerName || ord.user?.name || 'Customer'}</td>
+                              <td>{ord.items?.length || 1} Item(s)</td>
+                              <td><strong>₹{(ord.totalAmount || ord.amount || 0).toLocaleString()}</strong></td>
+                              <td>
+                                <span className="badge badge-active">{ord.status || 'Pending'}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* CATEGORY MODAL */}
+      {showCatModal && (
+        <div className="modal-backdrop" onClick={() => setShowCatModal(false)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">{editingCat ? 'Edit Category' : 'Create New Category'}</h3>
+              <button onClick={() => setShowCatModal(false)} className="modal-close">
+                <Icon name="close" size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleSaveCategory}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label className="form-label">Category Name *</label>
+                  <input
+                    type="text"
+                    required
+                    className="form-control"
+                    placeholder="e.g. Ultrasonic Plastic Welding"
+                    value={catForm.name}
+                    onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Category Slug (Optional)</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. ultrasonic-plastic-welding"
+                    value={catForm.slug}
+                    onChange={(e) => setCatForm({ ...catForm, slug: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Description</label>
+                  <textarea
+                    rows="3"
+                    className="form-control"
+                    placeholder="Brief description of the machinery solutions..."
+                    value={catForm.description}
+                    onChange={(e) => setCatForm({ ...catForm, description: e.target.value })}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label className="form-label">Display Order</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={catForm.displayOrder}
+                      onChange={(e) => setCatForm({ ...catForm, displayOrder: Number(e.target.value) })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Status</label>
+                    <select
+                      className="form-control"
+                      value={catForm.status}
+                      onChange={(e) => setCatForm({ ...catForm, status: e.target.value })}
+                    >
+                      <option value="active">Active (Visible)</option>
+                      <option value="inactive">Inactive (Hidden)</option>
+                    </select>
+                  </div>
                 </div>
               </div>
-            )}
 
-            {/* PRODUCTS TAB */}
-            {activeTab === 'products' && (
-              <div style={styles.card}>
-                <h3 style={styles.cardTitle}>Product Catalog ({products.length})</h3>
-                {products.length === 0 ? (
-                  <p style={{ color: '#64748B' }}>No products available yet. Add products to display them on the storefront.</p>
-                ) : (
-                  <table style={styles.table}>
-                    <thead>
-                      <tr>
-                        <th style={styles.th}>Product Name</th>
-                        <th style={styles.th}>Category</th>
-                        <th style={styles.th}>Price</th>
-                        <th style={styles.th}>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {products.map((p) => (
-                        <tr key={p._id}>
-                          <td style={styles.td}><strong>{p.name}</strong></td>
-                          <td style={styles.td}>{p.category?.name || 'General'}</td>
-                          <td style={styles.td}>₹{p.price || 'On Request'}</td>
-                          <td style={styles.td}>
-                            <span style={p.status === 'active' ? styles.badgeActive : styles.badgeInactive}>
-                              {p.status || 'active'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowCatModal(false)} className="action-btn-outline">
+                  Cancel
+                </button>
+                <button type="submit" disabled={catSubmitting} className="action-btn-primary">
+                  {catSubmitting ? 'Saving...' : (editingCat ? 'Update Category' : 'Create Category')}
+                </button>
               </div>
-            )}
-
-            {/* INQUIRIES TAB */}
-            {activeTab === 'inquiries' && (
-              <div style={styles.card}>
-                <h3 style={styles.cardTitle}>Customer Leads & Inquiries ({inquiries.length})</h3>
-                {inquiries.length === 0 ? (
-                  <p style={{ color: '#64748B' }}>No customer inquiries received yet.</p>
-                ) : (
-                  <table style={styles.table}>
-                    <thead>
-                      <tr>
-                        <th style={styles.th}>Name</th>
-                        <th style={styles.th}>Contact</th>
-                        <th style={styles.th}>Message</th>
-                        <th style={styles.th}>Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {inquiries.map((inq) => (
-                        <tr key={inq._id}>
-                          <td style={styles.td}><strong>{inq.name}</strong></td>
-                          <td style={styles.td}>{inq.email}<br /><small>{inq.phone}</small></td>
-                          <td style={styles.td}>{inq.message || inq.subject}</td>
-                          <td style={styles.td}>{new Date(inq.createdAt).toLocaleDateString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            )}
-
-            {/* ORDERS TAB */}
-            {activeTab === 'orders' && (
-              <div style={styles.card}>
-                <h3 style={styles.cardTitle}>Customer Orders ({orders.length})</h3>
-                {orders.length === 0 ? (
-                  <p style={{ color: '#64748B' }}>No orders placed yet.</p>
-                ) : (
-                  <table style={styles.table}>
-                    <thead>
-                      <tr>
-                        <th style={styles.th}>Order ID</th>
-                        <th style={styles.th}>Customer</th>
-                        <th style={styles.th}>Amount</th>
-                        <th style={styles.th}>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orders.map((ord) => (
-                        <tr key={ord._id}>
-                          <td style={styles.td}><code>{ord._id.slice(-6)}</code></td>
-                          <td style={styles.td}>{ord.customerName || ord.user?.name || 'Customer'}</td>
-                          <td style={styles.td}>₹{ord.totalAmount || ord.amount}</td>
-                          <td style={styles.td}>
-                            <span style={styles.badgeActive}>{ord.status || 'Pending'}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            )}
+            </form>
           </div>
-        )}
-      </main>
+        </div>
+      )}
+
+      {/* PRODUCT MODAL */}
+      {showProdModal && (
+        <div className="modal-backdrop" onClick={() => setShowProdModal(false)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Add New Product</h3>
+              <button onClick={() => setShowProdModal(false)} className="modal-close">
+                <Icon name="close" size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleSaveProduct}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label className="form-label">Product Name *</label>
+                  <input
+                    type="text"
+                    required
+                    className="form-control"
+                    placeholder="e.g. 20kHz Ultrasonic Welding Machine"
+                    value={prodForm.name}
+                    onChange={(e) => setProdForm({ ...prodForm, name: e.target.value })}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label className="form-label">Category</label>
+                    <select
+                      className="form-control"
+                      value={prodForm.category}
+                      onChange={(e) => setProdForm({ ...prodForm, category: e.target.value })}
+                    >
+                      <option value="">Select Category</option>
+                      {categories.map((c) => (
+                        <option key={c._id} value={c._id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Model Number</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. DSK-2000W"
+                      value={prodForm.modelNumber}
+                      onChange={(e) => setProdForm({ ...prodForm, modelNumber: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Price (₹)</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    placeholder="Leave blank for 'Quote on Request'"
+                    value={prodForm.price}
+                    onChange={(e) => setProdForm({ ...prodForm, price: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Description</label>
+                  <textarea
+                    rows="3"
+                    className="form-control"
+                    placeholder="Machine specifications and industrial application details..."
+                    value={prodForm.description}
+                    onChange={(e) => setProdForm({ ...prodForm, description: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowProdModal(false)} className="action-btn-outline">
+                  Cancel
+                </button>
+                <button type="submit" disabled={prodSubmitting} className="action-btn-primary">
+                  {prodSubmitting ? 'Saving...' : 'Add Product'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
-}
-
-const styles = {
-  layout: {
-    display: 'flex',
-    minHeight: '100vh',
-    background: '#F1F5F9',
-    fontFamily: '"Inter", "Segoe UI", Roboto, sans-serif'
-  },
-  sidebar: {
-    width: '260px',
-    background: '#0F172A',
-    color: '#ffffff',
-    display: 'flex',
-    flexDirection: 'column',
-    padding: '24px 16px',
-    flexShrink: 0
-  },
-  sideBrand: {
-    marginBottom: '28px',
-    paddingLeft: '8px'
-  },
-  brandBadge: {
-    fontSize: '11px',
-    fontWeight: '800',
-    color: '#38BDF8',
-    letterSpacing: '1.5px',
-    marginBottom: '4px'
-  },
-  brandTitle: {
-    fontSize: '18px',
-    fontWeight: '700',
-    margin: 0
-  },
-  nav: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-    flex: 1
-  },
-  navBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '10px 14px',
-    background: 'none',
-    border: 'none',
-    borderRadius: '8px',
-    color: '#94A3B8',
-    fontSize: '14px',
-    fontWeight: '500',
-    textAlign: 'left',
-    cursor: 'pointer',
-    transition: 'all 0.15s'
-  },
-  navActive: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '10px 14px',
-    background: '#1E293B',
-    border: 'none',
-    borderRadius: '8px',
-    color: '#38BDF8',
-    fontSize: '14px',
-    fontWeight: '600',
-    textAlign: 'left',
-    cursor: 'pointer'
-  },
-  sideFooter: {
-    borderTop: '1px solid #1E293B',
-    paddingTop: '16px'
-  },
-  adminInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    marginBottom: '12px'
-  },
-  adminAvatar: {
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    background: '#1E293B',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '16px'
-  },
-  adminName: {
-    fontSize: '13px',
-    fontWeight: '600'
-  },
-  adminEmail: {
-    fontSize: '11px',
-    color: '#64748B'
-  },
-  logoutBtn: {
-    width: '100%',
-    padding: '8px',
-    background: '#EF4444',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '13px',
-    fontWeight: '600',
-    cursor: 'pointer'
-  },
-  main: {
-    flex: 1,
-    padding: '32px 40px',
-    overflowY: 'auto'
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '28px'
-  },
-  pageTitle: {
-    fontSize: '26px',
-    fontWeight: '700',
-    color: '#0F172A',
-    margin: '0 0 4px 0'
-  },
-  pageSub: {
-    fontSize: '13px',
-    color: '#64748B',
-    margin: 0
-  },
-  refreshBtn: {
-    padding: '8px 16px',
-    background: '#ffffff',
-    border: '1px solid #CBD5E1',
-    borderRadius: '8px',
-    fontSize: '13px',
-    fontWeight: '600',
-    color: '#334155',
-    cursor: 'pointer'
-  },
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-    gap: '18px',
-    marginBottom: '24px'
-  },
-  statCard: {
-    background: '#ffffff',
-    padding: '20px',
-    borderRadius: '12px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-  },
-  statLabel: {
-    fontSize: '13px',
-    color: '#64748B',
-    fontWeight: '500',
-    marginBottom: '6px'
-  },
-  statValue: {
-    fontSize: '28px',
-    fontWeight: '700',
-    color: '#0F172A'
-  },
-  card: {
-    background: '#ffffff',
-    padding: '24px',
-    borderRadius: '12px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-    marginBottom: '24px'
-  },
-  cardTitle: {
-    fontSize: '16px',
-    fontWeight: '600',
-    color: '#0F172A',
-    marginTop: 0,
-    marginBottom: '16px'
-  },
-  statusRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    padding: '10px 0',
-    borderBottom: '1px solid #F1F5F9',
-    fontSize: '14px',
-    color: '#475569'
-  },
-  formRow: {
-    display: 'flex',
-    gap: '12px',
-    flexWrap: 'wrap'
-  },
-  input: {
-    flex: 1,
-    minWidth: '200px',
-    padding: '10px 14px',
-    borderRadius: '8px',
-    border: '1px solid #CBD5E1',
-    fontSize: '14px',
-    outline: 'none'
-  },
-  actionBtn: {
-    padding: '10px 20px',
-    background: '#2563EB',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer'
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    textAlign: 'left'
-  },
-  th: {
-    padding: '12px 14px',
-    background: '#F8FAFC',
-    color: '#475569',
-    fontSize: '12px',
-    fontWeight: '600',
-    borderBottom: '1px solid #E2E8F0'
-  },
-  td: {
-    padding: '12px 14px',
-    borderBottom: '1px solid #F1F5F9',
-    fontSize: '13px',
-    color: '#334155'
-  },
-  badgeActive: {
-    padding: '3px 8px',
-    background: '#DCFCE7',
-    color: '#166534',
-    borderRadius: '12px',
-    fontSize: '11px',
-    fontWeight: '600'
-  },
-  badgeInactive: {
-    padding: '3px 8px',
-    background: '#F1F5F9',
-    color: '#64748B',
-    borderRadius: '12px',
-    fontSize: '11px',
-    fontWeight: '600'
-  },
-  deleteBtn: {
-    padding: '4px 10px',
-    background: '#FEE2E2',
-    color: '#B91C1C',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer'
-  },
-  loadingBox: {
-    textAlign: 'center',
-    padding: '60px 0',
-    color: '#64748B'
-  },
-  alertSuccess: {
-    padding: '12px 16px',
-    background: '#DCFCE7',
-    color: '#166534',
-    borderRadius: '8px',
-    marginBottom: '16px',
-    fontSize: '14px',
-    fontWeight: '500'
-  },
-  alertError: {
-    padding: '12px 16px',
-    background: '#FEE2E2',
-    color: '#991B1B',
-    borderRadius: '8px',
-    marginBottom: '16px',
-    fontSize: '14px',
-    fontWeight: '500'
-  }
 }
