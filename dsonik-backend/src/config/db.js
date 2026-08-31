@@ -2,7 +2,13 @@ const mongoose = require("mongoose");
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 
+let isConnecting = false;
+
 const connectDB = async () => {
+  if (mongoose.connection.readyState === 1 || isConnecting) {
+    return;
+  }
+
   const uri =
     process.env.MONGODB_URI ||
     process.env.MONGO_URI ||
@@ -13,11 +19,15 @@ const connectDB = async () => {
     return;
   }
 
+  isConnecting = true;
+
   try {
     await mongoose.connect(uri, {
       autoIndex: true,
+      serverSelectionTimeoutMS: 5000,
     });
 
+    isConnecting = false;
     console.log("✅ MongoDB connected successfully to database:", mongoose.connection.name);
 
     // Automatically create default admin if not exists
@@ -47,7 +57,10 @@ const connectDB = async () => {
       console.log(`Default admin account created: ${adminEmail}`);
     }
   } catch (err) {
+    isConnecting = false;
     console.error("❌ MongoDB connection error:", err.message);
+    console.log("🔄 Retrying MongoDB connection in 5 seconds...");
+    setTimeout(connectDB, 5000);
   }
 };
 
