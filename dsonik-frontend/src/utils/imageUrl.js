@@ -1,7 +1,7 @@
 const API_ORIGIN = (
   import.meta.env.VITE_BACKEND_URL ||
   import.meta.env.VITE_API_URL ||
-  'https://api.naflines.tech'
+  'https://dsonik-backend-l8xa.onrender.com'
 ).replace(/\/$/, '')
 
 export const resolveImageUrl = (value, fallback = '') => {
