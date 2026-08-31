@@ -3,6 +3,8 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
+    "start": "npm start --prefix dsonik-backend",
+    "build": "npm install --prefix dsonik-backend",
     "dev:frontend": "npm run dev --prefix dsonik-frontend",
     "build:frontend": "npm run build --prefix dsonik-frontend",
     "dev:admin": "npm run dev --prefix dsonik-admin",
