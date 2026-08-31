@@ -64,18 +64,32 @@ app.use(
     origin(origin, callback) {
       if (!origin) return callback(null, true);
 
-      const isAllowed =
-        allowedOrigins.includes(origin) ||
-        origin.endsWith(".onrender.com") ||
-        process.env.NODE_ENV !== "production";
+      try {
+        const normalizedOrigin = origin.replace(/\/$/, "");
+        const hostname = new URL(origin).hostname;
 
-      if (isAllowed) {
-        return callback(null, true);
+        const isAllowed =
+          allowedOrigins.some((o) => o.replace(/\/$/, "") === normalizedOrigin) ||
+          hostname.endsWith(".onrender.com") ||
+          hostname.endsWith(".naflines.tech") ||
+          hostname === "naflines.tech" ||
+          hostname === "localhost" ||
+          hostname === "127.0.0.1" ||
+          process.env.NODE_ENV !== "production";
+
+        if (isAllowed) {
+          return callback(null, true);
+        }
+      } catch (err) {
+        console.warn("CORS origin parse error:", err);
       }
 
-      return callback(new Error(`Not allowed by CORS: ${origin}`));
+      return callback(null, false);
     },
     credentials: true,
+    methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+    exposedHeaders: ["Set-Cookie"],
   })
 );
 
