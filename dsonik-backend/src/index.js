@@ -118,7 +118,7 @@ if (process.env.NODE_ENV !== "test") {
 }
 
 // =========================
-// Health Check
+// Health Check & Root Info
 // =========================
 const healthHandler = (req, res) => {
   res.json({
@@ -130,6 +130,24 @@ const healthHandler = (req, res) => {
     environment: process.env.NODE_ENV,
   });
 };
+
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "DSONIK API Server is running",
+    version: "1.0.0",
+    status: "active",
+    healthCheck: "/health",
+  });
+});
+
+app.get("/api", (req, res) => {
+  res.json({
+    success: true,
+    message: "DSONIK API Endpoints available",
+    status: "active",
+  });
+});
 
 app.get("/health", healthHandler);
 app.get("/api/health", healthHandler);
