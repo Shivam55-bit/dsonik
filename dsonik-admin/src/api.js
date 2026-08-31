@@ -1,7 +1,11 @@
 import axios from 'axios';
 
 const adminApi = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://dsonik-backend-l8xa.onrender.com/api',
+  baseURL:
+    import.meta.env.VITE_API_BASE_URL ||
+    (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'http://localhost:5002/api'
+      : 'https://dsonik-backend-l8xa.onrender.com/api'),
   withCredentials: true,
   timeout: 15000,
 });

@@ -41,7 +41,7 @@ export default function ProtectedRoute({ children }) {
     }
 
     let mounted = true
-    api.get('/api/auth/profile')
+    api.get('/auth/profile')
       .then(res => {
         if (!mounted) return
         if (res.data && res.data.role === 'admin') {
