@@ -51,6 +51,57 @@ const DEFAULT_BANNER_PRESETS = [
   }
 ]
 
+const OFFICIAL_CATEGORY_PRESETS = [
+  {
+    name: 'Ultrasonic Plastic Welding',
+    slug: 'ultrasonic-plastic-welding',
+    description: 'High precision welding for thermoplastic components with superior strength and finish.',
+    image: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=800&q=80',
+    displayOrder: 1,
+    status: 'active'
+  },
+  {
+    name: 'Spin Welding Machines',
+    slug: 'spin-welding-machines',
+    description: 'Reliable rotary spin welding machines for strong, leakproof and durable circular joints.',
+    image: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80',
+    displayOrder: 2,
+    status: 'active'
+  },
+  {
+    name: 'Impulse Welding',
+    slug: 'impulse-welding',
+    description: 'Advanced impulse thermal technology for precise energy control and consistent sealing.',
+    image: 'https://images.unsplash.com/photo-1504917599217-d4dc5ebe6122?auto=format&fit=crop&w=800&q=80',
+    displayOrder: 3,
+    status: 'active'
+  },
+  {
+    name: 'Hot Plate Welding',
+    slug: 'hot-plate-welding',
+    description: 'Ideal for large, complex shaped thermoplastic parts requiring airtight and waterproof seams.',
+    image: 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=800&q=80',
+    displayOrder: 4,
+    status: 'active'
+  },
+  {
+    name: 'Vibration Welding Systems',
+    slug: 'vibration-welding-systems',
+    description: 'Heavy duty friction vibration welding for automotive manifolds, lights, and structural tanks.',
+    image: 'https://images.unsplash.com/photo-1581092162384-8987c1d64718?auto=format&fit=crop&w=800&q=80',
+    displayOrder: 5,
+    status: 'active'
+  },
+  {
+    name: 'Ultrasonic Generators & Horns',
+    slug: 'ultrasonic-generators-horns',
+    description: 'Custom titanium and aluminum sonotrodes, boosters, and digital auto-tuning power supplies.',
+    image: 'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=800&q=80',
+    displayOrder: 6,
+    status: 'active'
+  }
+]
+
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview')
   const [adminUser, setAdminUser] = useState(null)
@@ -61,17 +112,39 @@ export default function Dashboard() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all')
   const [toast, setToast] = useState({ show: false, type: 'success', text: '' })
 
   // Category Modal State
   const [showCatModal, setShowCatModal] = useState(false)
   const [editingCat, setEditingCat] = useState(null)
-  const [catForm, setCatForm] = useState({ name: '', slug: '', description: '', status: 'active', displayOrder: 0 })
+  const [catForm, setCatForm] = useState({
+    name: '',
+    slug: '',
+    description: '',
+    image: '',
+    status: 'active',
+    displayOrder: 0
+  })
   const [catSubmitting, setCatSubmitting] = useState(false)
 
   // Product Modal State
   const [showProdModal, setShowProdModal] = useState(false)
-  const [prodForm, setProdForm] = useState({ name: '', category: '', price: '', modelNumber: '', description: '', status: 'active' })
+  const [editingProd, setEditingProd] = useState(null)
+  const [prodForm, setProdForm] = useState({
+    name: '',
+    slug: '',
+    category: '',
+    price: '',
+    salePrice: '',
+    sku: '',
+    stock: 10,
+    shortDescription: '',
+    description: '',
+    images: '',
+    isFeatured: false,
+    status: 'active'
+  })
   const [prodSubmitting, setProdSubmitting] = useState(false)
 
   // Banner Modal State
@@ -160,6 +233,32 @@ export default function Dashboard() {
   // ==========================
   // Category Handlers
   // ==========================
+  const openAddCategory = () => {
+    setEditingCat(null)
+    setCatForm({
+      name: '',
+      slug: '',
+      description: '',
+      image: OFFICIAL_CATEGORY_PRESETS[0].image,
+      status: 'active',
+      displayOrder: categories.length + 1
+    })
+    setShowCatModal(true)
+  }
+
+  const openEditCategory = (cat) => {
+    setEditingCat(cat)
+    setCatForm({
+      name: cat.name || '',
+      slug: cat.slug || '',
+      description: cat.description || '',
+      image: cat.image || '',
+      status: cat.status || 'active',
+      displayOrder: cat.displayOrder || 0
+    })
+    setShowCatModal(true)
+  }
+
   const handleSaveCategory = async (e) => {
     e.preventDefault()
     if (!catForm.name.trim()) return
@@ -175,25 +274,12 @@ export default function Dashboard() {
       }
       setShowCatModal(false)
       setEditingCat(null)
-      setCatForm({ name: '', slug: '', description: '', status: 'active', displayOrder: 0 })
       fetchAllData()
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to save category', 'error')
     } finally {
       setCatSubmitting(false)
     }
-  }
-
-  const openEditCat = (cat) => {
-    setEditingCat(cat)
-    setCatForm({
-      name: cat.name,
-      slug: cat.slug || '',
-      description: cat.description || '',
-      status: cat.status || 'active',
-      displayOrder: cat.displayOrder || 0
-    })
-    setShowCatModal(true)
   }
 
   const handleDeleteCategory = async (id, name) => {
@@ -208,32 +294,98 @@ export default function Dashboard() {
     }
   }
 
+  const handleSeedDefaultCategories = async () => {
+    if (!window.confirm('Initialize the 6 official DSONIK industrial categories in database?')) return
+
+    setLoading(true)
+    try {
+      for (const cat of OFFICIAL_CATEGORY_PRESETS) {
+        await adminApi.post('/admin/categories', cat).catch(() => null)
+      }
+      showToast('Official DSONIK categories added!')
+      fetchAllData()
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to seed categories', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // ==========================
   // Product Handlers
   // ==========================
+  const openAddProduct = () => {
+    setEditingProd(null)
+    setProdForm({
+      name: '',
+      slug: '',
+      category: categories[0]?._id || '',
+      price: '',
+      salePrice: '',
+      sku: `DSK-${Math.floor(1000 + Math.random() * 9000)}`,
+      stock: 10,
+      shortDescription: '',
+      description: '',
+      images: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=800&q=80',
+      isFeatured: true,
+      status: 'active'
+    })
+    setShowProdModal(true)
+  }
+
+  const openEditProduct = (prod) => {
+    setEditingProd(prod)
+    const catId = typeof prod.category === 'object' ? prod.category?._id : prod.category
+    setProdForm({
+      name: prod.name || '',
+      slug: prod.slug || '',
+      category: catId || '',
+      price: prod.price ?? '',
+      salePrice: prod.salePrice ?? '',
+      sku: prod.sku || prod.modelNumber || '',
+      stock: prod.stock ?? 10,
+      shortDescription: prod.shortDescription || '',
+      description: prod.description || '',
+      images: Array.isArray(prod.images) ? prod.images[0] || '' : prod.images || '',
+      isFeatured: Boolean(prod.isFeatured || prod.featured),
+      status: prod.status || 'active'
+    })
+    setShowProdModal(true)
+  }
+
   const handleSaveProduct = async (e) => {
     e.preventDefault()
     if (!prodForm.name.trim()) return
 
     setProdSubmitting(true)
+    const payload = {
+      ...prodForm,
+      price: prodForm.price ? Number(prodForm.price) : 0,
+      salePrice: prodForm.salePrice ? Number(prodForm.salePrice) : undefined,
+      stock: prodForm.stock !== '' ? Number(prodForm.stock) : 0,
+      images: prodForm.images ? [prodForm.images.trim()] : []
+    }
+
     try {
-      await adminApi.post('/admin/products', {
-        ...prodForm,
-        price: prodForm.price ? Number(prodForm.price) : 0
-      })
-      showToast(`Product "${prodForm.name}" added to catalog!`)
+      if (editingProd) {
+        await adminApi.put(`/admin/products/${editingProd._id}`, payload)
+        showToast(`Product "${prodForm.name}" updated!`)
+      } else {
+        await adminApi.post('/admin/products', payload)
+        showToast(`Product "${prodForm.name}" added to catalog!`)
+      }
       setShowProdModal(false)
-      setProdForm({ name: '', category: '', price: '', modelNumber: '', description: '', status: 'active' })
+      setEditingProd(null)
       fetchAllData()
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to create product', 'error')
+      showToast(err.response?.data?.message || 'Failed to save product', 'error')
     } finally {
       setProdSubmitting(false)
     }
   }
 
   const handleDeleteProduct = async (id, name) => {
-    if (!window.confirm(`Delete product "${name}"?`)) return
+    if (!window.confirm(`Delete product "${name}" from store?`)) return
 
     try {
       await adminApi.delete(`/admin/products/${id}`)
@@ -241,6 +393,119 @@ export default function Dashboard() {
       fetchAllData()
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to delete product', 'error')
+    }
+  }
+
+  const handleSeedDefaultProducts = async () => {
+    if (!window.confirm('Populate catalog with 6 standard DSONIK industrial machinery products?')) return
+
+    setLoading(true)
+    try {
+      let currentCats = categories
+      if (currentCats.length === 0) {
+        for (const cat of OFFICIAL_CATEGORY_PRESETS) {
+          await adminApi.post('/admin/categories', cat).catch(() => null)
+        }
+        const catsRes = await adminApi.get('/admin/categories')
+        currentCats = catsRes.data.categories || catsRes.data.data || []
+      }
+
+      const getCatId = (slug) => {
+        const found = currentCats.find(c => c.slug === slug)
+        return found ? found._id : currentCats[0]?._id
+      }
+
+      const sampleProducts = [
+        {
+          name: '20kHz Standard Ultrasonic Plastic Welder',
+          slug: '20khz-ultrasonic-plastic-welder',
+          category: getCatId('ultrasonic-plastic-welding'),
+          price: 185000,
+          sku: 'DSK-US2020',
+          stock: 15,
+          shortDescription: 'High precision 20kHz 2000W ultrasonic welding press with digital auto-tuning.',
+          description: 'Engineered for automotive parts, medical devices, electronic housings, and packaging. Features touchscreen PLC controller with energy/time welding modes.',
+          images: ['https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=800&q=80'],
+          isFeatured: true,
+          status: 'active'
+        },
+        {
+          name: 'Precision Rotary Spin Welding Machine',
+          slug: 'precision-rotary-spin-welder',
+          category: getCatId('spin-welding-machines'),
+          price: 240000,
+          sku: 'DSK-SP500',
+          stock: 8,
+          shortDescription: 'Servo-driven rotary spin welding system for airtight circular joint assemblies.',
+          description: 'Ideal for fuel filters, valves, flow meters, pressure containers, and circular plastic components requiring hermetic seals.',
+          images: ['https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80'],
+          isFeatured: true,
+          status: 'active'
+        },
+        {
+          name: 'Heavy-Duty Impulse Sealer & Welder',
+          slug: 'heavy-duty-impulse-sealer',
+          category: getCatId('impulse-welding'),
+          price: 125000,
+          sku: 'DSK-IMP800',
+          stock: 12,
+          shortDescription: 'Instant impulse thermal welding system for heavy gauge films and liners.',
+          description: 'Equipped with rapid heating and cooling cycles to prevent warping and achieve high tensile strength seal bonds.',
+          images: ['https://images.unsplash.com/photo-1504917599217-d4dc5ebe6122?auto=format&fit=crop&w=800&q=80'],
+          isFeatured: true,
+          status: 'active'
+        },
+        {
+          name: 'Pneumatic Hot Plate Plastic Welder',
+          slug: 'pneumatic-hot-plate-welder',
+          category: getCatId('hot-plate-welding'),
+          price: 320000,
+          sku: 'DSK-HP1200',
+          stock: 5,
+          shortDescription: 'High strength thermal contact welder for irregular and large thermoplastic parts.',
+          description: 'Features precision temperature PID control up to 450°C and dual sliding shuttle tables for continuous production.',
+          images: ['https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=800&q=80'],
+          isFeatured: true,
+          status: 'active'
+        },
+        {
+          name: 'High Frequency Vibration Welder Pro',
+          slug: 'vibration-welder-pro',
+          category: getCatId('vibration-welding-systems'),
+          price: 450000,
+          sku: 'DSK-VIB3000',
+          stock: 4,
+          shortDescription: 'Friction linear vibration system for large structural automotive assemblies.',
+          description: 'Capable of welding instrument panels, intake manifolds, expansion tanks, and large washing machine drums effortlessly.',
+          images: ['https://images.unsplash.com/photo-1581092162384-8987c1d64718?auto=format&fit=crop&w=800&q=80'],
+          isFeatured: true,
+          status: 'active'
+        },
+        {
+          name: 'Digital Ultrasonic Generator & Titanium Horn',
+          slug: 'digital-ultrasonic-generator-titanium-horn',
+          category: getCatId('ultrasonic-generators-horns'),
+          price: 75000,
+          sku: 'DSK-GEN20K',
+          stock: 25,
+          shortDescription: 'Intelligent frequency-tracking power generator with custom tuned titanium sonotrode.',
+          description: 'Complete transducer, booster, and horn kit with constant amplitude output and overload protection circuitry.',
+          images: ['https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=800&q=80'],
+          isFeatured: true,
+          status: 'active'
+        }
+      ]
+
+      for (const prod of sampleProducts) {
+        await adminApi.post('/admin/products', prod).catch(() => null)
+      }
+
+      showToast('6 Official DSONIK Machinery products loaded!')
+      fetchAllData()
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to seed products', 'error')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -348,10 +613,17 @@ export default function Dashboard() {
     c.slug?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const filteredProducts = products.filter(p =>
-    p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.modelNumber?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredProducts = products.filter(p => {
+    const matchesSearch =
+      p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.slug?.toLowerCase().includes(searchQuery.toLowerCase())
+
+    const catId = typeof p.category === 'object' ? p.category?._id : p.category
+    const matchesCat = selectedCategoryFilter === 'all' || catId === selectedCategoryFilter
+
+    return matchesSearch && matchesCat
+  })
 
   const filteredBanners = banners.filter(b =>
     b.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -499,7 +771,7 @@ export default function Dashboard() {
               <Icon name="search" size={16} />
               <input
                 type="text"
-                placeholder="Search banners, products, leads..."
+                placeholder="Search catalog, products, leads..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -537,16 +809,16 @@ export default function Dashboard() {
                 {activeTab === 'overview' && 'Dashboard Overview'}
                 {activeTab === 'banners' && 'Hero Section Banners'}
                 {activeTab === 'categories' && 'Categories Management'}
-                {activeTab === 'products' && 'Product Inventory'}
+                {activeTab === 'products' && 'Product Catalog'}
                 {activeTab === 'inquiries' && 'Customer Leads & Quotes'}
                 {activeTab === 'orders' && 'Order Fulfillment'}
               </h1>
               <p className="page-sub">DSONIK Industrial Machinery & Ultrasonic Automation</p>
             </div>
 
-            <div>
+            <div style={{ display: 'flex', gap: '10px' }}>
               {activeTab === 'banners' && (
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <>
                   {banners.length === 0 && (
                     <button onClick={handleSeedDefaultBanners} className="action-btn-outline">
                       ⚡ Load Preset Banners
@@ -556,29 +828,33 @@ export default function Dashboard() {
                     <Icon name="plus" size={16} />
                     Add Hero Banner
                   </button>
-                </div>
+                </>
               )}
               {activeTab === 'categories' && (
-                <button
-                  onClick={() => {
-                    setEditingCat(null)
-                    setCatForm({ name: '', slug: '', description: '', status: 'active', displayOrder: 0 })
-                    setShowCatModal(true)
-                  }}
-                  className="action-btn-primary"
-                >
-                  <Icon name="plus" size={16} />
-                  Add Category
-                </button>
+                <>
+                  {categories.length === 0 && (
+                    <button onClick={handleSeedDefaultCategories} className="action-btn-outline">
+                      ⚡ Load 6 Categories
+                    </button>
+                  )}
+                  <button onClick={openAddCategory} className="action-btn-primary">
+                    <Icon name="plus" size={16} />
+                    Add Category
+                  </button>
+                </>
               )}
               {activeTab === 'products' && (
-                <button
-                  onClick={() => setShowProdModal(true)}
-                  className="action-btn-primary"
-                >
-                  <Icon name="plus" size={16} />
-                  Add Product
-                </button>
+                <>
+                  {products.length === 0 && (
+                    <button onClick={handleSeedDefaultProducts} className="action-btn-outline">
+                      ⚡ Load 6 Machinery Products
+                    </button>
+                  )}
+                  <button onClick={openAddProduct} className="action-btn-primary">
+                    <Icon name="plus" size={16} />
+                    Add Product
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -684,101 +960,162 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Quick Catalog Actions */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '18px', marginBottom: '24px' }}>
+                    <div className="content-card" style={{ margin: 0 }}>
+                      <div className="card-header">
+                        <h3 className="card-title">📁 Categories ({categories.length})</h3>
+                        <button onClick={openAddCategory} className="action-btn-outline" style={{ padding: '4px 10px', fontSize: '12px' }}>
+                          + Add Category
+                        </button>
+                      </div>
+                      <div className="card-body">
+                        {categories.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '16px', color: '#94A3B8' }}>
+                            <p style={{ marginBottom: '8px' }}>No categories created yet.</p>
+                            <button onClick={handleSeedDefaultCategories} className="action-btn-primary" style={{ fontSize: '12px', padding: '6px 12px' }}>
+                              ⚡ Load 6 Categories
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {categories.slice(0, 4).map(c => (
+                              <div key={c._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: '#F8FAFC', borderRadius: '8px' }}>
+                                <strong>{c.name}</strong>
+                                <span className="code-badge">{c.slug}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="content-card" style={{ margin: 0 }}>
+                      <div className="card-header">
+                        <h3 className="card-title">📦 Featured Products ({products.length})</h3>
+                        <button onClick={openAddProduct} className="action-btn-outline" style={{ padding: '4px 10px', fontSize: '12px' }}>
+                          + Add Product
+                        </button>
+                      </div>
+                      <div className="card-body">
+                        {products.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '16px', color: '#94A3B8' }}>
+                            <p style={{ marginBottom: '8px' }}>No products in database.</p>
+                            <button onClick={handleSeedDefaultProducts} className="action-btn-primary" style={{ fontSize: '12px', padding: '6px 12px' }}>
+                              ⚡ Load 6 Machinery Products
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {products.slice(0, 4).map(p => (
+                              <div key={p._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: '#F8FAFC', borderRadius: '8px' }}>
+                                <div>
+                                  <strong>{p.name}</strong>
+                                  <div style={{ fontSize: '11px', color: '#64748B' }}>{p.sku || p.modelNumber || 'DSK'}</div>
+                                </div>
+                                <strong style={{ color: '#0284C7' }}>₹{p.price?.toLocaleString()}</strong>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* HERO BANNERS TAB */}
               {activeTab === 'banners' && (
-                <div>
-                  <div className="content-card">
-                    <div className="card-header">
-                      <div>
-                        <h3 className="card-title">Homepage Hero Banners ({filteredBanners.length})</h3>
-                        <p style={{ fontSize: '13px', color: '#64748B', margin: '4px 0 0 0' }}>
-                          Manage the rotating hero slider banners, headlines, and call-to-action buttons shown on the main homepage.
-                        </p>
-                      </div>
+                <div className="content-card">
+                  <div className="card-header">
+                    <div>
+                      <h3 className="card-title">Homepage Hero Banners ({filteredBanners.length})</h3>
+                      <p style={{ fontSize: '13px', color: '#64748B', margin: '4px 0 0 0' }}>
+                        Add, edit and delete the hero slides, titles, button links and images shown on the main storefront.
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {banners.length === 0 && (
+                        <button onClick={handleSeedDefaultBanners} className="action-btn-outline">
+                          ⚡ Load 3 Default Banners
+                        </button>
+                      )}
                       <button onClick={openAddBanner} className="action-btn-primary">
                         <Icon name="plus" size={16} />
                         Add Hero Banner
                       </button>
                     </div>
+                  </div>
 
-                    <div className="card-body">
-                      {filteredBanners.length === 0 ? (
-                        <div style={{ padding: '48px', textAlign: 'center', color: '#64748B' }}>
-                          <Icon name="banners" size={48} color="#CBD5E1" />
-                          <p style={{ marginTop: '16px', fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>No Hero Banners In Database</p>
-                          <p style={{ fontSize: '13px', color: '#94A3B8', marginTop: '4px', maxWidth: '400px', margin: '6px auto 16px' }}>
-                            Create your first custom banner or initialize with the 3 default DSONIK industrial machinery presets.
-                          </p>
-                          <button onClick={handleSeedDefaultBanners} className="action-btn-primary">
-                            ⚡ Load 3 Default Banners to Database
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="banner-grid">
-                          {filteredBanners.map((b) => (
-                            <div key={b._id} className="banner-card">
-                              <div
-                                className="banner-card-preview"
-                                style={{ backgroundImage: `url(${b.desktopImage})` }}
-                              >
-                                <div className="banner-card-overlay" style={{ opacity: b.overlayOpacity ?? 0.45 }} />
-                                <div className="banner-card-content">
-                                  {b.tag && <span className="banner-card-tag">{b.tag}</span>}
-                                  <div className="banner-card-title">{b.title}</div>
-                                  <div className="banner-card-sub">{b.subtitle}</div>
+                  <div className="card-body">
+                    {filteredBanners.length === 0 ? (
+                      <div style={{ padding: '48px', textAlign: 'center', color: '#64748B' }}>
+                        <Icon name="banners" size={48} color="#CBD5E1" />
+                        <p style={{ marginTop: '16px', fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>No Hero Banners In Database</p>
+                        <p style={{ fontSize: '13px', color: '#94A3B8', marginTop: '4px', maxWidth: '400px', margin: '6px auto 16px' }}>
+                          Create your custom banner or load the 3 official DSONIK presets.
+                        </p>
+                        <button onClick={handleSeedDefaultBanners} className="action-btn-primary">
+                          ⚡ Load 3 Default Banners to Database
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="banner-grid">
+                        {filteredBanners.map((b) => (
+                          <div key={b._id} className="banner-card">
+                            <div
+                              className="banner-card-preview"
+                              style={{ backgroundImage: `url(${b.desktopImage})` }}
+                            >
+                              <div className="banner-card-overlay" style={{ opacity: b.overlayOpacity ?? 0.45 }} />
+                              <div className="banner-card-content">
+                                {b.tag && <span className="banner-card-tag">{b.tag}</span>}
+                                <div className="banner-card-title">{b.title}</div>
+                                <div className="banner-card-sub">{b.subtitle}</div>
+                              </div>
+                            </div>
+
+                            <div className="banner-card-body">
+                              <div className="banner-details-grid">
+                                <div className="banner-detail-item">
+                                  <span>Button 1:</span>
+                                  <strong>{b.buttonOneText || 'Explore Machines'}</strong>
+                                  <small style={{ color: '#94A3B8' }}>{b.buttonOneLink || '/category/all'}</small>
+                                </div>
+                                <div className="banner-detail-item">
+                                  <span>Button 2:</span>
+                                  <strong>{b.buttonTwoText || 'Enquire Now'}</strong>
+                                  <small style={{ color: '#94A3B8' }}>{b.buttonTwoLink || '/contact'}</small>
+                                </div>
+                                <div className="banner-detail-item">
+                                  <span>Order / Align:</span>
+                                  <strong>#{b.displayOrder ?? 0} • {b.textAlignment || 'left'}</strong>
+                                </div>
+                                <div className="banner-detail-item">
+                                  <span>Status:</span>
+                                  <span className={`badge ${b.status === 'active' ? 'badge-active' : 'badge-inactive'}`}>
+                                    {b.status || 'active'}
+                                  </span>
                                 </div>
                               </div>
 
-                              <div className="banner-card-body">
-                                <div className="banner-details-grid">
-                                  <div className="banner-detail-item">
-                                    <span>Button 1:</span>
-                                    <strong>{b.buttonOneText || 'Explore Machines'}</strong>
-                                    <small style={{ color: '#94A3B8' }}>{b.buttonOneLink || '/category/all'}</small>
-                                  </div>
-                                  <div className="banner-detail-item">
-                                    <span>Button 2:</span>
-                                    <strong>{b.buttonTwoText || 'Enquire Now'}</strong>
-                                    <small style={{ color: '#94A3B8' }}>{b.buttonTwoLink || '/contact'}</small>
-                                  </div>
-                                  <div className="banner-detail-item">
-                                    <span>Order / Align:</span>
-                                    <strong>#{b.displayOrder ?? 0} • {b.textAlignment || 'left'}</strong>
-                                  </div>
-                                  <div className="banner-detail-item">
-                                    <span>Status:</span>
-                                    <span className={`badge ${b.status === 'active' ? 'badge-active' : 'badge-inactive'}`}>
-                                      {b.status || 'active'}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {b.description && (
-                                  <p style={{ fontSize: '12px', color: '#64748B', borderTop: '1px solid #F1F5F9', paddingTop: '8px', margin: 0 }}>
-                                    {b.description}
-                                  </p>
-                                )}
-
-                                <div className="banner-card-footer">
-                                  <span style={{ fontSize: '11px', color: '#94A3B8' }}>ID: {b._id.slice(-6)}</span>
-                                  <div className="table-actions">
-                                    <button onClick={() => openEditBanner(b)} className="icon-btn" title="Edit Banner">
-                                      <Icon name="edit" size={15} />
-                                    </button>
-                                    <button onClick={() => handleDeleteBanner(b._id, b.title)} className="icon-btn icon-btn-danger" title="Delete Banner">
-                                      <Icon name="trash" size={15} />
-                                    </button>
-                                  </div>
+                              <div className="banner-card-footer">
+                                <span style={{ fontSize: '11px', color: '#94A3B8' }}>ID: {b._id.slice(-6)}</span>
+                                <div className="table-actions">
+                                  <button onClick={() => openEditBanner(b)} className="icon-btn" title="Edit Banner">
+                                    <Icon name="edit" size={15} />
+                                  </button>
+                                  <button onClick={() => handleDeleteBanner(b._id, b.title)} className="icon-btn icon-btn-danger" title="Delete Banner">
+                                    <Icon name="trash" size={15} />
+                                  </button>
                                 </div>
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -787,33 +1124,45 @@ export default function Dashboard() {
               {activeTab === 'categories' && (
                 <div className="content-card">
                   <div className="card-header">
-                    <h3 className="card-title">All Categories ({filteredCategories.length})</h3>
-                    <button
-                      onClick={() => {
-                        setEditingCat(null)
-                        setCatForm({ name: '', slug: '', description: '', status: 'active', displayOrder: 0 })
-                        setShowCatModal(true)
-                      }}
-                      className="action-btn-primary"
-                    >
-                      <Icon name="plus" size={16} />
-                      Add Category
-                    </button>
+                    <div>
+                      <h3 className="card-title">All Categories ({filteredCategories.length})</h3>
+                      <p style={{ fontSize: '13px', color: '#64748B', margin: '4px 0 0 0' }}>
+                        Manage product categories, descriptions, images and display order.
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {categories.length === 0 && (
+                        <button onClick={handleSeedDefaultCategories} className="action-btn-outline">
+                          ⚡ Load 6 Default Categories
+                        </button>
+                      )}
+                      <button onClick={openAddCategory} className="action-btn-primary">
+                        <Icon name="plus" size={16} />
+                        Add Category
+                      </button>
+                    </div>
                   </div>
+
                   <div className="table-responsive">
                     {filteredCategories.length === 0 ? (
                       <div style={{ padding: '48px', textAlign: 'center', color: '#64748B' }}>
-                        <Icon name="categories" size={40} color="#CBD5E1" />
-                        <p style={{ marginTop: '12px', fontSize: '15px', fontWeight: 600 }}>No categories found</p>
-                        <p style={{ fontSize: '13px', color: '#94A3B8', marginTop: '4px' }}>Click "Add Category" to create your first product category.</p>
+                        <Icon name="categories" size={48} color="#CBD5E1" />
+                        <p style={{ marginTop: '14px', fontSize: '16px', fontWeight: 700 }}>No categories found</p>
+                        <p style={{ fontSize: '13px', color: '#94A3B8', marginTop: '4px', marginBottom: '16px' }}>
+                          Create your first category or click below to populate the official DSONIK categories.
+                        </p>
+                        <button onClick={handleSeedDefaultCategories} className="action-btn-primary">
+                          ⚡ Load 6 Official Categories
+                        </button>
                       </div>
                     ) : (
                       <table className="modern-table">
                         <thead>
                           <tr>
-                            <th>Category Name</th>
+                            <th>Category</th>
                             <th>Slug</th>
                             <th>Description</th>
+                            <th>Order</th>
                             <th>Status</th>
                             <th>Actions</th>
                           </tr>
@@ -822,15 +1171,28 @@ export default function Dashboard() {
                           {filteredCategories.map((c) => (
                             <tr key={c._id}>
                               <td>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                  <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Icon name="categories" size={18} color="#0284C7" />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                  {c.image ? (
+                                    <img
+                                      src={c.image}
+                                      alt={c.name}
+                                      style={{ width: '42px', height: '42px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #E2E8F0' }}
+                                      onError={(e) => { e.currentTarget.style.display = 'none' }}
+                                    />
+                                  ) : (
+                                    <div style={{ width: '42px', height: '42px', borderRadius: '8px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                      <Icon name="categories" size={20} color="#0284C7" />
+                                    </div>
+                                  )}
+                                  <div>
+                                    <strong>{c.name}</strong>
+                                    <div style={{ fontSize: '11px', color: '#94A3B8' }}>ID: {c._id.slice(-6)}</div>
                                   </div>
-                                  <strong>{c.name}</strong>
                                 </div>
                               </td>
                               <td><span className="code-badge">{c.slug}</span></td>
-                              <td style={{ maxWidth: '300px', color: '#64748B' }}>{c.description || '—'}</td>
+                              <td style={{ maxWidth: '280px', color: '#64748B', fontSize: '13px' }}>{c.description || '—'}</td>
+                              <td><strong>#{c.displayOrder ?? 0}</strong></td>
                               <td>
                                 <span className={`badge ${c.status === 'active' ? 'badge-active' : 'badge-inactive'}`}>
                                   {c.status}
@@ -838,10 +1200,10 @@ export default function Dashboard() {
                               </td>
                               <td>
                                 <div className="table-actions">
-                                  <button onClick={() => openEditCat(c)} className="icon-btn" title="Edit">
+                                  <button onClick={() => openEditCategory(c)} className="icon-btn" title="Edit Category">
                                     <Icon name="edit" size={15} />
                                   </button>
-                                  <button onClick={() => handleDeleteCategory(c._id, c.name)} className="icon-btn icon-btn-danger" title="Delete">
+                                  <button onClick={() => handleDeleteCategory(c._id, c.name)} className="icon-btn icon-btn-danger" title="Delete Category">
                                     <Icon name="trash" size={15} />
                                   </button>
                                 </div>
@@ -859,62 +1221,125 @@ export default function Dashboard() {
               {activeTab === 'products' && (
                 <div className="content-card">
                   <div className="card-header">
-                    <h3 className="card-title">Product Inventory ({filteredProducts.length})</h3>
-                    <button onClick={() => setShowProdModal(true)} className="action-btn-primary">
-                      <Icon name="plus" size={16} />
-                      Add Product
-                    </button>
+                    <div>
+                      <h3 className="card-title">Product Inventory ({filteredProducts.length})</h3>
+                      <p style={{ fontSize: '13px', color: '#64748B', margin: '4px 0 0 0' }}>
+                        Add, edit, manage pricing, specifications and featured items.
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {/* Category Filter Dropdown */}
+                      <select
+                        className="form-control"
+                        style={{ width: '180px', padding: '6px 12px', fontSize: '13px' }}
+                        value={selectedCategoryFilter}
+                        onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                      >
+                        <option value="all">All Categories</option>
+                        {categories.map((c) => (
+                          <option key={c._id} value={c._id}>{c.name}</option>
+                        ))}
+                      </select>
+
+                      {products.length === 0 && (
+                        <button onClick={handleSeedDefaultProducts} className="action-btn-outline">
+                          ⚡ Load 6 Machinery Products
+                        </button>
+                      )}
+
+                      <button onClick={openAddProduct} className="action-btn-primary">
+                        <Icon name="plus" size={16} />
+                        Add Product
+                      </button>
+                    </div>
                   </div>
+
                   <div className="table-responsive">
                     {filteredProducts.length === 0 ? (
                       <div style={{ padding: '48px', textAlign: 'center', color: '#64748B' }}>
-                        <Icon name="products" size={40} color="#CBD5E1" />
-                        <p style={{ marginTop: '12px', fontSize: '15px', fontWeight: 600 }}>No products in catalog</p>
-                        <p style={{ fontSize: '13px', color: '#94A3B8', marginTop: '4px' }}>Click "Add Product" to add your industrial machinery and products.</p>
+                        <Icon name="products" size={48} color="#CBD5E1" />
+                        <p style={{ marginTop: '14px', fontSize: '16px', fontWeight: 700 }}>No products found</p>
+                        <p style={{ fontSize: '13px', color: '#94A3B8', marginTop: '4px', marginBottom: '16px' }}>
+                          Add custom machinery or click below to populate official DSONIK products.
+                        </p>
+                        <button onClick={handleSeedDefaultProducts} className="action-btn-primary">
+                          ⚡ Load 6 Machinery Products
+                        </button>
                       </div>
                     ) : (
                       <table className="modern-table">
                         <thead>
                           <tr>
-                            <th>Product</th>
+                            <th>Product Details</th>
                             <th>Category</th>
-                            <th>Model Number</th>
+                            <th>SKU / Model</th>
                             <th>Price</th>
+                            <th>Stock</th>
                             <th>Status</th>
                             <th>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredProducts.map((p) => (
-                            <tr key={p._id}>
-                              <td>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                  <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Icon name="products" size={18} color="#10B981" />
+                          {filteredProducts.map((p) => {
+                            const catName = typeof p.category === 'object' ? p.category?.name : (categories.find(c => c._id === p.category)?.name || 'General')
+                            const imgUrl = Array.isArray(p.images) ? p.images[0] : p.images
+
+                            return (
+                              <tr key={p._id}>
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    {imgUrl ? (
+                                      <img
+                                        src={imgUrl}
+                                        alt={p.name}
+                                        style={{ width: '46px', height: '46px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #E2E8F0' }}
+                                        onError={(e) => { e.currentTarget.style.display = 'none' }}
+                                      />
+                                    ) : (
+                                      <div style={{ width: '46px', height: '46px', borderRadius: '8px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Icon name="products" size={20} color="#10B981" />
+                                      </div>
+                                    )}
+                                    <div>
+                                      <strong>{p.name}</strong>
+                                      <div style={{ fontSize: '11px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span>{p.slug}</span>
+                                        {(p.isFeatured || p.featured) && <span style={{ color: '#D97706', fontWeight: 700 }}>★ Featured</span>}
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <strong>{p.name}</strong>
-                                    <div style={{ fontSize: '12px', color: '#94A3B8' }}>{p.slug}</div>
+                                </td>
+                                <td><span className="badge" style={{ background: '#E0F2FE', color: '#0369A1' }}>{catName}</span></td>
+                                <td><span className="code-badge">{p.sku || p.modelNumber || 'N/A'}</span></td>
+                                <td>
+                                  <strong style={{ color: '#0F172A' }}>
+                                    {p.price ? `₹${p.price.toLocaleString()}` : 'Quote on Request'}
+                                  </strong>
+                                  {p.salePrice > 0 && <div style={{ fontSize: '11px', color: '#10B981' }}>Sale: ₹{p.salePrice.toLocaleString()}</div>}
+                                </td>
+                                <td>
+                                  <span style={{ fontSize: '13px', fontWeight: 600, color: (p.stock || 0) > 0 ? '#10B981' : '#EF4444' }}>
+                                    {p.stock ?? 10} in stock
+                                  </span>
+                                </td>
+                                <td>
+                                  <span className={`badge ${p.status === 'active' ? 'badge-active' : 'badge-inactive'}`}>
+                                    {p.status || 'active'}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div className="table-actions">
+                                    <button onClick={() => openEditProduct(p)} className="icon-btn" title="Edit Product">
+                                      <Icon name="edit" size={15} />
+                                    </button>
+                                    <button onClick={() => handleDeleteProduct(p._id, p.name)} className="icon-btn icon-btn-danger" title="Delete Product">
+                                      <Icon name="trash" size={15} />
+                                    </button>
                                   </div>
-                                </div>
-                              </td>
-                              <td>{p.category?.name || 'General'}</td>
-                              <td><span className="code-badge">{p.modelNumber || 'N/A'}</span></td>
-                              <td><strong>{p.price ? `₹${p.price.toLocaleString()}` : 'Quote on Request'}</strong></td>
-                              <td>
-                                <span className={`badge ${p.status === 'active' ? 'badge-active' : 'badge-inactive'}`}>
-                                  {p.status || 'active'}
-                                </span>
-                              </td>
-                              <td>
-                                <div className="table-actions">
-                                  <button onClick={() => handleDeleteProduct(p._id, p.name)} className="icon-btn icon-btn-danger" title="Delete">
-                                    <Icon name="trash" size={15} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
+                                </td>
+                              </tr>
+                            )
+                          })}
                         </tbody>
                       </table>
                     )}
@@ -1231,7 +1656,7 @@ export default function Dashboard() {
               </button>
             </div>
             <form onSubmit={handleSaveCategory}>
-              <div className="modal-body">
+              <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
                 <div className="form-group">
                   <label className="form-label">Category Name *</label>
                   <input
@@ -1252,6 +1677,17 @@ export default function Dashboard() {
                     placeholder="e.g. ultrasonic-plastic-welding"
                     value={catForm.slug}
                     onChange={(e) => setCatForm({ ...catForm, slug: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Category Image URL</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="https://... or image URL"
+                    value={catForm.image}
+                    onChange={(e) => setCatForm({ ...catForm, image: e.target.value })}
                   />
                 </div>
 
@@ -1307,15 +1743,15 @@ export default function Dashboard() {
       {/* PRODUCT MODAL */}
       {showProdModal && (
         <div className="modal-backdrop" onClick={() => setShowProdModal(false)}>
-          <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-dialog" style={{ maxWidth: '640px' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">Add New Product</h3>
+              <h3 className="modal-title">{editingProd ? 'Edit Product' : 'Add New Machinery Product'}</h3>
               <button onClick={() => setShowProdModal(false)} className="modal-close">
                 <Icon name="close" size={20} />
               </button>
             </div>
             <form onSubmit={handleSaveProduct}>
-              <div className="modal-body">
+              <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
                 <div className="form-group">
                   <label className="form-label">Product Name *</label>
                   <input
@@ -1330,8 +1766,9 @@ export default function Dashboard() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div className="form-group">
-                    <label className="form-label">Category</label>
+                    <label className="form-label">Category *</label>
                     <select
+                      required
                       className="form-control"
                       value={prodForm.category}
                       onChange={(e) => setProdForm({ ...prodForm, category: e.target.value })}
@@ -1344,37 +1781,108 @@ export default function Dashboard() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Model Number</label>
+                    <label className="form-label">Model / SKU</label>
                     <input
                       type="text"
                       className="form-control"
-                      placeholder="e.g. DSK-2000W"
-                      value={prodForm.modelNumber}
-                      onChange={(e) => setProdForm({ ...prodForm, modelNumber: e.target.value })}
+                      placeholder="e.g. DSK-2020W"
+                      value={prodForm.sku}
+                      onChange={(e) => setProdForm({ ...prodForm, sku: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label className="form-label">Price (₹) *</label>
+                    <input
+                      type="number"
+                      required
+                      className="form-control"
+                      placeholder="e.g. 185000"
+                      value={prodForm.price}
+                      onChange={(e) => setProdForm({ ...prodForm, price: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Sale / Discount Price (Optional)</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      placeholder="e.g. 175000"
+                      value={prodForm.salePrice}
+                      onChange={(e) => setProdForm({ ...prodForm, salePrice: e.target.value })}
                     />
                   </div>
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Price (₹)</label>
+                  <label className="form-label">Product Image URL</label>
                   <input
-                    type="number"
+                    type="text"
                     className="form-control"
-                    placeholder="Leave blank for 'Quote on Request'"
-                    value={prodForm.price}
-                    onChange={(e) => setProdForm({ ...prodForm, price: e.target.value })}
+                    placeholder="https://... or image URL"
+                    value={prodForm.images}
+                    onChange={(e) => setProdForm({ ...prodForm, images: e.target.value })}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Description</label>
+                  <label className="form-label">Short Description</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="High precision 20kHz 2000W ultrasonic welding press..."
+                    value={prodForm.shortDescription}
+                    onChange={(e) => setProdForm({ ...prodForm, shortDescription: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Full Technical Description</label>
                   <textarea
                     rows="3"
                     className="form-control"
-                    placeholder="Machine specifications and industrial application details..."
+                    placeholder="Machine specifications, applications (Automotive, Medical, Packaging), PLC controls..."
                     value={prodForm.description}
                     onChange={(e) => setProdForm({ ...prodForm, description: e.target.value })}
                   />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label className="form-label">Stock Quantity</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={prodForm.stock}
+                      onChange={(e) => setProdForm({ ...prodForm, stock: Number(e.target.value) })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Status</label>
+                    <select
+                      className="form-control"
+                      value={prodForm.status}
+                      onChange={(e) => setProdForm({ ...prodForm, status: e.target.value })}
+                    >
+                      <option value="active">Active (Visible)</option>
+                      <option value="inactive">Inactive (Hidden)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '8px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: 600 }}>
+                    <input
+                      type="checkbox"
+                      checked={prodForm.isFeatured}
+                      onChange={(e) => setProdForm({ ...prodForm, isFeatured: e.target.checked })}
+                    />
+                    <span>★ Mark as Featured Product (Show on Homepage)</span>
+                  </label>
                 </div>
               </div>
 
@@ -1383,7 +1891,7 @@ export default function Dashboard() {
                   Cancel
                 </button>
                 <button type="submit" disabled={prodSubmitting} className="action-btn-primary">
-                  {prodSubmitting ? 'Saving...' : 'Add Product'}
+                  {prodSubmitting ? 'Saving...' : (editingProd ? 'Update Product' : 'Add Product')}
                 </button>
               </div>
             </form>
