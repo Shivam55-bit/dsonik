@@ -3,26 +3,96 @@ import { useNavigate } from 'react-router-dom'
 import adminApi from '../api'
 import Icon from '../components/Icons'
 
+const DEFAULT_BANNER_PRESETS = [
+  {
+    title: 'We Deliver Results',
+    subtitle: 'Precision welding machines trusted by 950+ manufacturers.',
+    description: 'High performance industrial welding equipment built for B2B manufacturing.',
+    tag: 'Ultrasonic Plastic Welding',
+    desktopImage: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=1600&q=80',
+    buttonOneText: 'Explore Machines',
+    buttonOneLink: '/category/all',
+    buttonTwoText: 'Enquire Now',
+    buttonTwoLink: '/contact',
+    overlayOpacity: 0.45,
+    textAlignment: 'left',
+    displayOrder: 1,
+    status: 'active'
+  },
+  {
+    title: 'High Strength Jointing',
+    subtitle: 'Engineered for maximum repeatable industrial quality.',
+    description: 'Advanced spin and ultrasonic joining technology for demanding assembly lines.',
+    tag: 'Spin & Rotary Welding',
+    desktopImage: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=1600&q=80',
+    buttonOneText: 'Explore Machines',
+    buttonOneLink: '/category/all',
+    buttonTwoText: 'Enquire Now',
+    buttonTwoLink: '/contact',
+    overlayOpacity: 0.45,
+    textAlignment: 'left',
+    displayOrder: 2,
+    status: 'active'
+  },
+  {
+    title: 'Engineered For Precision',
+    subtitle: 'On-site commissioning, operator training, and dedicated support.',
+    description: 'Tailored turnkey plastic welding systems built to your specs.',
+    tag: 'Custom B2B Solutions',
+    desktopImage: 'https://images.unsplash.com/photo-1504917599217-d4dc5ebe6122?auto=format&fit=crop&w=1600&q=80',
+    buttonOneText: 'Contact Us',
+    buttonOneLink: '/contact',
+    buttonTwoText: 'Enquire Now',
+    buttonTwoLink: '/contact',
+    overlayOpacity: 0.45,
+    textAlignment: 'left',
+    displayOrder: 3,
+    status: 'active'
+  }
+]
+
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview')
   const [adminUser, setAdminUser] = useState(null)
   const [categories, setCategories] = useState([])
   const [products, setProducts] = useState([])
+  const [banners, setBanners] = useState([])
   const [inquiries, setInquiries] = useState([])
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [toast, setToast] = useState({ show: false, type: 'success', text: '' })
 
-  // Modal States
+  // Category Modal State
   const [showCatModal, setShowCatModal] = useState(false)
   const [editingCat, setEditingCat] = useState(null)
   const [catForm, setCatForm] = useState({ name: '', slug: '', description: '', status: 'active', displayOrder: 0 })
   const [catSubmitting, setCatSubmitting] = useState(false)
 
+  // Product Modal State
   const [showProdModal, setShowProdModal] = useState(false)
   const [prodForm, setProdForm] = useState({ name: '', category: '', price: '', modelNumber: '', description: '', status: 'active' })
   const [prodSubmitting, setProdSubmitting] = useState(false)
+
+  // Banner Modal State
+  const [showBannerModal, setShowBannerModal] = useState(false)
+  const [editingBanner, setEditingBanner] = useState(null)
+  const [bannerForm, setBannerForm] = useState({
+    title: '',
+    subtitle: '',
+    description: '',
+    tag: '',
+    desktopImage: '',
+    buttonOneText: 'Explore Machines',
+    buttonOneLink: '/category/all',
+    buttonTwoText: 'Enquire Now',
+    buttonTwoLink: '/contact',
+    overlayOpacity: 0.45,
+    textAlignment: 'left',
+    displayOrder: 0,
+    status: 'active'
+  })
+  const [bannerSubmitting, setBannerSubmitting] = useState(false)
 
   const navigate = useNavigate()
 
@@ -43,9 +113,10 @@ export default function Dashboard() {
   const fetchAllData = async () => {
     setLoading(true)
     try {
-      const [catsRes, prodsRes, inqRes, ordRes] = await Promise.allSettled([
+      const [catsRes, prodsRes, bannersRes, inqRes, ordRes] = await Promise.allSettled([
         adminApi.get('/admin/categories'),
         adminApi.get('/admin/products'),
+        adminApi.get('/admin/banners'),
         adminApi.get('/admin/inquiries'),
         adminApi.get('/admin/orders')
       ])
@@ -57,6 +128,10 @@ export default function Dashboard() {
       if (prodsRes.status === 'fulfilled') {
         const d = prodsRes.value.data
         setProducts(d.products || d.data || [])
+      }
+      if (bannersRes.status === 'fulfilled') {
+        const d = bannersRes.value.data
+        setBanners(d.banners || d.data || [])
       }
       if (inqRes.status === 'fulfilled') {
         const d = inqRes.value.data
@@ -82,7 +157,9 @@ export default function Dashboard() {
     navigate('/login')
   }
 
-  // Category Actions
+  // ==========================
+  // Category Handlers
+  // ==========================
   const handleSaveCategory = async (e) => {
     e.preventDefault()
     if (!catForm.name.trim()) return
@@ -131,7 +208,9 @@ export default function Dashboard() {
     }
   }
 
-  // Product Actions
+  // ==========================
+  // Product Handlers
+  // ==========================
   const handleSaveProduct = async (e) => {
     e.preventDefault()
     if (!prodForm.name.trim()) return
@@ -165,7 +244,105 @@ export default function Dashboard() {
     }
   }
 
-  // Filters
+  // ==========================
+  // Hero Banner Handlers
+  // ==========================
+  const openAddBanner = () => {
+    setEditingBanner(null)
+    setBannerForm({
+      title: '',
+      subtitle: '',
+      description: '',
+      tag: '',
+      desktopImage: DEFAULT_BANNER_PRESETS[0].desktopImage,
+      buttonOneText: 'Explore Machines',
+      buttonOneLink: '/category/all',
+      buttonTwoText: 'Enquire Now',
+      buttonTwoLink: '/contact',
+      overlayOpacity: 0.45,
+      textAlignment: 'left',
+      displayOrder: banners.length + 1,
+      status: 'active'
+    })
+    setShowBannerModal(true)
+  }
+
+  const openEditBanner = (b) => {
+    setEditingBanner(b)
+    setBannerForm({
+      title: b.title || '',
+      subtitle: b.subtitle || '',
+      description: b.description || '',
+      tag: b.tag || '',
+      desktopImage: b.desktopImage || '',
+      buttonOneText: b.buttonOneText || 'Explore Machines',
+      buttonOneLink: b.buttonOneLink || '/category/all',
+      buttonTwoText: b.buttonTwoText || 'Enquire Now',
+      buttonTwoLink: b.buttonTwoLink || '/contact',
+      overlayOpacity: b.overlayOpacity ?? 0.45,
+      textAlignment: b.textAlignment || 'left',
+      displayOrder: b.displayOrder || 0,
+      status: b.status || 'active'
+    })
+    setShowBannerModal(true)
+  }
+
+  const handleSaveBanner = async (e) => {
+    e.preventDefault()
+    if (!bannerForm.title.trim() || !bannerForm.desktopImage.trim()) {
+      showToast('Title and Desktop Image are required', 'error')
+      return
+    }
+
+    setBannerSubmitting(true)
+    try {
+      if (editingBanner) {
+        await adminApi.put(`/admin/banners/${editingBanner._id}`, bannerForm)
+        showToast(`Banner "${bannerForm.title}" updated successfully!`)
+      } else {
+        await adminApi.post('/admin/banners', bannerForm)
+        showToast(`Hero banner "${bannerForm.title}" published!`)
+      }
+      setShowBannerModal(false)
+      setEditingBanner(null)
+      fetchAllData()
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to save banner', 'error')
+    } finally {
+      setBannerSubmitting(false)
+    }
+  }
+
+  const handleDeleteBanner = async (id, title) => {
+    if (!window.confirm(`Delete banner "${title}" from Hero section?`)) return
+
+    try {
+      await adminApi.delete(`/admin/banners/${id}`)
+      showToast(`Banner "${title}" removed.`)
+      fetchAllData()
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to delete banner', 'error')
+    }
+  }
+
+  const handleSeedDefaultBanners = async () => {
+    if (!window.confirm('Load the 3 official DSONIK Hero banners into MongoDB?')) return
+
+    setLoading(true)
+    try {
+      for (const b of DEFAULT_BANNER_PRESETS) {
+        await adminApi.post('/admin/banners', b)
+      }
+      showToast('Default DSONIK Hero banners created in database!')
+      fetchAllData()
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to seed banners', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Filter logic
   const filteredCategories = categories.filter(c =>
     c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.slug?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -174,6 +351,12 @@ export default function Dashboard() {
   const filteredProducts = products.filter(p =>
     p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.modelNumber?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const filteredBanners = banners.filter(b =>
+    b.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    b.subtitle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    b.tag?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const filteredInquiries = inquiries.filter(i =>
@@ -229,6 +412,17 @@ export default function Dashboard() {
               <Icon name="dashboard" size={18} />
               <span>Overview</span>
             </div>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('banners')}
+            className={`nav-item ${activeTab === 'banners' ? 'active' : ''}`}
+          >
+            <div className="nav-item-left">
+              <Icon name="banners" size={18} />
+              <span>Hero Banners</span>
+            </div>
+            <span className="nav-count-badge" style={{ background: '#E0F2FE', color: '#0284C7' }}>{banners.length}</span>
           </button>
 
           <button
@@ -305,7 +499,7 @@ export default function Dashboard() {
               <Icon name="search" size={16} />
               <input
                 type="text"
-                placeholder="Search catalog, leads, orders..."
+                placeholder="Search banners, products, leads..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -341,6 +535,7 @@ export default function Dashboard() {
             <div>
               <h1 className="page-title">
                 {activeTab === 'overview' && 'Dashboard Overview'}
+                {activeTab === 'banners' && 'Hero Section Banners'}
                 {activeTab === 'categories' && 'Categories Management'}
                 {activeTab === 'products' && 'Product Inventory'}
                 {activeTab === 'inquiries' && 'Customer Leads & Quotes'}
@@ -350,6 +545,19 @@ export default function Dashboard() {
             </div>
 
             <div>
+              {activeTab === 'banners' && (
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {banners.length === 0 && (
+                    <button onClick={handleSeedDefaultBanners} className="action-btn-outline">
+                      ⚡ Load Preset Banners
+                    </button>
+                  )}
+                  <button onClick={openAddBanner} className="action-btn-primary">
+                    <Icon name="plus" size={16} />
+                    Add Hero Banner
+                  </button>
+                </div>
+              )}
               {activeTab === 'categories' && (
                 <button
                   onClick={() => {
@@ -386,7 +594,21 @@ export default function Dashboard() {
               {activeTab === 'overview' && (
                 <div>
                   <div className="stats-grid">
-                    <div className="stat-card">
+                    <div className="stat-card" onClick={() => setActiveTab('banners')} style={{ cursor: 'pointer' }}>
+                      <div className="stat-info">
+                        <span className="stat-label">Hero Banners</span>
+                        <span className="stat-value">{banners.length}</span>
+                        <span className="stat-trend">
+                          <Icon name="trendingUp" size={14} />
+                          Homepage Slides
+                        </span>
+                      </div>
+                      <div className="stat-icon-wrapper stat-icon-blue">
+                        <Icon name="banners" size={22} />
+                      </div>
+                    </div>
+
+                    <div className="stat-card" onClick={() => setActiveTab('categories')} style={{ cursor: 'pointer' }}>
                       <div className="stat-info">
                         <span className="stat-label">Total Categories</span>
                         <span className="stat-value">{categories.length}</span>
@@ -395,12 +617,12 @@ export default function Dashboard() {
                           Active Catalog
                         </span>
                       </div>
-                      <div className="stat-icon-wrapper stat-icon-blue">
+                      <div className="stat-icon-wrapper stat-icon-emerald">
                         <Icon name="categories" size={22} />
                       </div>
                     </div>
 
-                    <div className="stat-card">
+                    <div className="stat-card" onClick={() => setActiveTab('products')} style={{ cursor: 'pointer' }}>
                       <div className="stat-info">
                         <span className="stat-label">Total Products</span>
                         <span className="stat-value">{products.length}</span>
@@ -409,12 +631,12 @@ export default function Dashboard() {
                           Live on Store
                         </span>
                       </div>
-                      <div className="stat-icon-wrapper stat-icon-emerald">
+                      <div className="stat-icon-wrapper stat-icon-purple">
                         <Icon name="products" size={22} />
                       </div>
                     </div>
 
-                    <div className="stat-card">
+                    <div className="stat-card" onClick={() => setActiveTab('inquiries')} style={{ cursor: 'pointer' }}>
                       <div className="stat-info">
                         <span className="stat-label">Inquiries Received</span>
                         <span className="stat-value">{inquiries.length}</span>
@@ -425,20 +647,6 @@ export default function Dashboard() {
                       </div>
                       <div className="stat-icon-wrapper stat-icon-amber">
                         <Icon name="inquiries" size={22} />
-                      </div>
-                    </div>
-
-                    <div className="stat-card">
-                      <div className="stat-info">
-                        <span className="stat-label">Total Orders</span>
-                        <span className="stat-value">{orders.length}</span>
-                        <span className="stat-trend" style={{ color: '#7C3AED' }}>
-                          <Icon name="orders" size={14} />
-                          Processed
-                        </span>
-                      </div>
-                      <div className="stat-icon-wrapper stat-icon-purple">
-                        <Icon name="orders" size={22} />
                       </div>
                     </div>
                   </div>
@@ -469,51 +677,106 @@ export default function Dashboard() {
                         </div>
 
                         <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
-                          <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>AUTHENTICATED SESSION</div>
+                          <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>AUTHENTICATED ADMIN</div>
                           <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>{adminUser?.email || 'admin@dsonik.com'}</div>
-                          <div style={{ fontSize: '12px', color: '#10B981', marginTop: '4px', fontWeight: 600 }}>Role: Administrator</div>
+                          <div style={{ fontSize: '12px', color: '#10B981', marginTop: '4px', fontWeight: 600 }}>Role: Super Administrator</div>
                         </div>
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
 
-                  {/* Recent Inquiries Snippet */}
+              {/* HERO BANNERS TAB */}
+              {activeTab === 'banners' && (
+                <div>
                   <div className="content-card">
                     <div className="card-header">
-                      <h3 className="card-title">Recent Customer Inquiries</h3>
-                      <button onClick={() => setActiveTab('inquiries')} className="action-btn-outline" style={{ padding: '4px 10px', fontSize: '12px' }}>
-                        View All Inquiries →
+                      <div>
+                        <h3 className="card-title">Homepage Hero Banners ({filteredBanners.length})</h3>
+                        <p style={{ fontSize: '13px', color: '#64748B', margin: '4px 0 0 0' }}>
+                          Manage the rotating hero slider banners, headlines, and call-to-action buttons shown on the main homepage.
+                        </p>
+                      </div>
+                      <button onClick={openAddBanner} className="action-btn-primary">
+                        <Icon name="plus" size={16} />
+                        Add Hero Banner
                       </button>
                     </div>
-                    <div className="table-responsive">
-                      {inquiries.length === 0 ? (
-                        <div style={{ padding: '32px', textAlign: 'center', color: '#94A3B8' }}>
-                          No customer inquiries received yet.
+
+                    <div className="card-body">
+                      {filteredBanners.length === 0 ? (
+                        <div style={{ padding: '48px', textAlign: 'center', color: '#64748B' }}>
+                          <Icon name="banners" size={48} color="#CBD5E1" />
+                          <p style={{ marginTop: '16px', fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>No Hero Banners In Database</p>
+                          <p style={{ fontSize: '13px', color: '#94A3B8', marginTop: '4px', maxWidth: '400px', margin: '6px auto 16px' }}>
+                            Create your first custom banner or initialize with the 3 default DSONIK industrial machinery presets.
+                          </p>
+                          <button onClick={handleSeedDefaultBanners} className="action-btn-primary">
+                            ⚡ Load 3 Default Banners to Database
+                          </button>
                         </div>
                       ) : (
-                        <table className="modern-table">
-                          <thead>
-                            <tr>
-                              <th>Customer</th>
-                              <th>Contact</th>
-                              <th>Subject / Inquiry</th>
-                              <th>Date</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {inquiries.slice(0, 5).map((inq) => (
-                              <tr key={inq._id}>
-                                <td><strong>{inq.name}</strong></td>
-                                <td>
-                                  <div>{inq.email}</div>
-                                  <small style={{ color: '#64748B' }}>{inq.phone}</small>
-                                </td>
-                                <td>{inq.subject || inq.message}</td>
-                                <td>{new Date(inq.createdAt).toLocaleDateString()}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                        <div className="banner-grid">
+                          {filteredBanners.map((b) => (
+                            <div key={b._id} className="banner-card">
+                              <div
+                                className="banner-card-preview"
+                                style={{ backgroundImage: `url(${b.desktopImage})` }}
+                              >
+                                <div className="banner-card-overlay" style={{ opacity: b.overlayOpacity ?? 0.45 }} />
+                                <div className="banner-card-content">
+                                  {b.tag && <span className="banner-card-tag">{b.tag}</span>}
+                                  <div className="banner-card-title">{b.title}</div>
+                                  <div className="banner-card-sub">{b.subtitle}</div>
+                                </div>
+                              </div>
+
+                              <div className="banner-card-body">
+                                <div className="banner-details-grid">
+                                  <div className="banner-detail-item">
+                                    <span>Button 1:</span>
+                                    <strong>{b.buttonOneText || 'Explore Machines'}</strong>
+                                    <small style={{ color: '#94A3B8' }}>{b.buttonOneLink || '/category/all'}</small>
+                                  </div>
+                                  <div className="banner-detail-item">
+                                    <span>Button 2:</span>
+                                    <strong>{b.buttonTwoText || 'Enquire Now'}</strong>
+                                    <small style={{ color: '#94A3B8' }}>{b.buttonTwoLink || '/contact'}</small>
+                                  </div>
+                                  <div className="banner-detail-item">
+                                    <span>Order / Align:</span>
+                                    <strong>#{b.displayOrder ?? 0} • {b.textAlignment || 'left'}</strong>
+                                  </div>
+                                  <div className="banner-detail-item">
+                                    <span>Status:</span>
+                                    <span className={`badge ${b.status === 'active' ? 'badge-active' : 'badge-inactive'}`}>
+                                      {b.status || 'active'}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {b.description && (
+                                  <p style={{ fontSize: '12px', color: '#64748B', borderTop: '1px solid #F1F5F9', paddingTop: '8px', margin: 0 }}>
+                                    {b.description}
+                                  </p>
+                                )}
+
+                                <div className="banner-card-footer">
+                                  <span style={{ fontSize: '11px', color: '#94A3B8' }}>ID: {b._id.slice(-6)}</span>
+                                  <div className="table-actions">
+                                    <button onClick={() => openEditBanner(b)} className="icon-btn" title="Edit Banner">
+                                      <Icon name="edit" size={15} />
+                                    </button>
+                                    <button onClick={() => handleDeleteBanner(b._id, b.title)} className="icon-btn icon-btn-danger" title="Delete Banner">
+                                      <Icon name="trash" size={15} />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -776,6 +1039,186 @@ export default function Dashboard() {
           )}
         </main>
       </div>
+
+      {/* HERO BANNER MODAL */}
+      {showBannerModal && (
+        <div className="modal-backdrop" onClick={() => setShowBannerModal(false)}>
+          <div className="modal-dialog" style={{ maxWidth: '640px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">{editingBanner ? 'Edit Hero Banner' : 'Add Hero Banner'}</h3>
+              <button onClick={() => setShowBannerModal(false)} className="modal-close">
+                <Icon name="close" size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleSaveBanner}>
+              <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
+                <div className="form-group">
+                  <label className="form-label">Banner Headline (Title) *</label>
+                  <input
+                    type="text"
+                    required
+                    className="form-control"
+                    placeholder="e.g. We Deliver Results"
+                    value={bannerForm.title}
+                    onChange={(e) => setBannerForm({ ...bannerForm, title: e.target.value })}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label className="form-label">Eyebrow Tag / Badge</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Ultrasonic Plastic Welding"
+                      value={bannerForm.tag}
+                      onChange={(e) => setBannerForm({ ...bannerForm, tag: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Text Alignment</label>
+                    <select
+                      className="form-control"
+                      value={bannerForm.textAlignment}
+                      onChange={(e) => setBannerForm({ ...bannerForm, textAlignment: e.target.value })}
+                    >
+                      <option value="left">Left Aligned</option>
+                      <option value="center">Center Aligned</option>
+                      <option value="right">Right Aligned</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Subtitle</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. Precision welding machines trusted by 950+ manufacturers."
+                    value={bannerForm.subtitle}
+                    onChange={(e) => setBannerForm({ ...bannerForm, subtitle: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Detailed Description (Optional)</label>
+                  <textarea
+                    rows="2"
+                    className="form-control"
+                    placeholder="Additional industrial machinery details..."
+                    value={bannerForm.description}
+                    onChange={(e) => setBannerForm({ ...bannerForm, description: e.target.value })}
+                  />
+                </div>
+
+                {/* Desktop Image Selector */}
+                <div className="form-group">
+                  <label className="form-label">Desktop Background Image URL *</label>
+                  <input
+                    type="text"
+                    required
+                    className="form-control"
+                    placeholder="https://... or image URL"
+                    value={bannerForm.desktopImage}
+                    onChange={(e) => setBannerForm({ ...bannerForm, desktopImage: e.target.value })}
+                  />
+                  <div style={{ marginTop: '6px' }}>
+                    <small style={{ color: '#64748B', fontWeight: 600 }}>Quick Presets:</small>
+                    <div className="preset-grid">
+                      {DEFAULT_BANNER_PRESETS.map((p, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setBannerForm({ ...bannerForm, desktopImage: p.desktopImage, tag: p.tag || bannerForm.tag })}
+                          className={`preset-btn ${bannerForm.desktopImage === p.desktopImage ? 'selected' : ''}`}
+                        >
+                          Preset {idx + 1} ({p.tag.split(' ')[0]})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* CTA Buttons */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label className="form-label">Primary Button 1 (Text & Link)</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Button Text (e.g. Explore Machines)"
+                      value={bannerForm.buttonOneText}
+                      onChange={(e) => setBannerForm({ ...bannerForm, buttonOneText: e.target.value })}
+                      style={{ marginBottom: '6px' }}
+                    />
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Link (e.g. /category/all)"
+                      value={bannerForm.buttonOneLink}
+                      onChange={(e) => setBannerForm({ ...bannerForm, buttonOneLink: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Secondary Button 2 (Text & Link)</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Button Text (e.g. Enquire Now)"
+                      value={bannerForm.buttonTwoText}
+                      onChange={(e) => setBannerForm({ ...bannerForm, buttonTwoText: e.target.value })}
+                      style={{ marginBottom: '6px' }}
+                    />
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Link (e.g. /contact)"
+                      value={bannerForm.buttonTwoLink}
+                      onChange={(e) => setBannerForm({ ...bannerForm, buttonTwoLink: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* Display Order & Status */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label className="form-label">Display Order (Slide Index)</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={bannerForm.displayOrder}
+                      onChange={(e) => setBannerForm({ ...bannerForm, displayOrder: Number(e.target.value) })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Status</label>
+                    <select
+                      className="form-control"
+                      value={bannerForm.status}
+                      onChange={(e) => setBannerForm({ ...bannerForm, status: e.target.value })}
+                    >
+                      <option value="active">Active (Visible in Hero Slider)</option>
+                      <option value="inactive">Inactive (Hidden)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" onClick={() => setShowBannerModal(false)} className="action-btn-outline">
+                  Cancel
+                </button>
+                <button type="submit" disabled={bannerSubmitting} className="action-btn-primary">
+                  {bannerSubmitting ? 'Saving...' : (editingBanner ? 'Update Banner' : 'Publish Hero Banner')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* CATEGORY MODAL */}
       {showCatModal && (
