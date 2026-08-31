@@ -6,6 +6,8 @@
     "dev:frontend": "npm run dev --prefix dsonik-frontend",
     "build:frontend": "npm run build --prefix dsonik-frontend",
     "dev:admin": "npm run dev --prefix dsonik-admin",
-    "build:admin": "npm run build --prefix dsonik-admin"
+    "build:admin": "npm run build --prefix dsonik-admin",
+    "dev:backend": "npm run dev --prefix dsonik-backend",
+    "start:backend": "npm start --prefix dsonik-backend"
   }
 }

@@ -1,47 +1,61 @@
-# DSONIK
+# DSONIK Platform
 
-A full-stack industrial solutions web platform consisting of the customer frontend and the admin panel.
+A complete B2B industrial solutions web platform consisting of:
+- **dsonik-frontend**: Customer-facing E-Commerce Web Application (React + Vite)
+- **dsonik-admin**: Management Dashboard (React + Vite)
+- **dsonik-backend**: REST API Server (Node.js + Express + MongoDB)
 
 ## Project Structure
 
 ```
 dsonik/
-├── dsonik-frontend/     # Customer-facing E-commerce Web Application (React + Vite)
-├── dsonik-admin/        # Admin Dashboard (React + Vite)
+├── dsonik-frontend/     # Customer-facing E-commerce Web Application (Port 5176)
+├── dsonik-admin/        # Admin Dashboard (Port 5173)
+├── dsonik-backend/      # Express API Server (Port 5001)
 ├── package.json         # Monorepo root scripts
 └── README.md
 ```
 
-## Quick Start
+## Quick Start (Local Development)
 
-### 1. Customer Frontend
+### Run all from root:
 ```bash
-cd dsonik-frontend
-npm install
-npm run dev
-```
-Runs at `http://localhost:5176`
-
-### 2. Admin Dashboard
-```bash
-cd dsonik-admin
-npm install
-npm run dev
-```
-Runs at `http://localhost:5173`
-
-### Or from the root directory:
-```bash
-npm run dev:frontend   # Starts customer frontend
-npm run dev:admin      # Starts admin dashboard
+npm run dev:frontend   # Starts customer frontend (http://localhost:5176)
+npm run dev:admin      # Starts admin dashboard (http://localhost:5173)
+npm run dev:backend    # Starts backend API (http://localhost:5001)
 ```
 
-## Render Deployment Settings
-- **Customer Frontend Static Site:**
-  - **Root Directory:** `dsonik-frontend`
-  - **Build Command:** `npm install && npm run build`
-  - **Publish Directory:** `dist`
-- **Admin Dashboard Static Site:**
-  - **Root Directory:** `dsonik-admin`
-  - **Build Command:** `npm install && npm run build`
-  - **Publish Directory:** `dist`
+## Deployment Guide (Render)
+
+### 1. Backend (Render Web Service)
+- **Service Type:** Web Service (Node)
+- **Root Directory:** `dsonik-backend`
+- **Build Command:** `npm install`
+- **Start Command:** `npm start`
+- **Environment Variables:**
+  - `MONGODB_URI`: MongoDB Atlas connection string
+  - `JWT_SECRET`: Random secure string
+  - `FRONTEND_URL`: `https://dsonik.onrender.com`
+  - `ADMIN_URL`: `https://dsonik-admin.onrender.com`
+
+### 2. Frontend (Render Static Site)
+- **Service Type:** Static Site
+- **Root Directory:** `dsonik-frontend`
+- **Build Command:** `npm install && npm run build`
+- **Publish Directory:** `dist`
+- **Environment Variables:**
+  - `VITE_API_BASE_URL`: `https://<your-backend-service>.onrender.com/api`
+  - `VITE_BACKEND_URL`: `https://<your-backend-service>.onrender.com`
+  - `VITE_API_URL`: `https://<your-backend-service>.onrender.com`
+- **Redirects / Rewrites:**
+  - `/*` -> `/index.html` (Rewrite)
+
+### 3. Admin (Render Static Site)
+- **Service Type:** Static Site
+- **Root Directory:** `dsonik-admin`
+- **Build Command:** `npm install && npm run build`
+- **Publish Directory:** `dist`
+- **Environment Variables:**
+  - `VITE_API_BASE_URL`: `https://<your-backend-service>.onrender.com/api`
+- **Redirects / Rewrites:**
+  - `/*` -> `/index.html` (Rewrite)
